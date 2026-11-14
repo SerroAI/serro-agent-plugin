@@ -22,7 +22,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Client | Status | Directory |
 | --- | --- | --- |
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
-| Cursor, Codex, Kiro, Cline, Antigravity, opencode, pi, Hermes | Not started | |
+| Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
+| Codex, Kiro, Cline, Antigravity, opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
 
@@ -33,7 +34,15 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 
 Then run `/mcp` to sign in to Serro.
 
-If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code keeps yours and skips the plugin's copy, so tools don't appear twice.
+## Install (Cursor)
+
+Add this repo as a plugin marketplace (`/plugin marketplace add SerroAI/serro-agent-plugin` in the Cursor CLI, or import it as a team marketplace), then install `serro`. Sign in to Serro from Cursor's MCP settings. Commands are `/serro-program`, `/serro-sync` and `/serro-handoff`.
+
+Cursor can't add context before each prompt, so there is no per-prompt reminder there. Every Agent Exchange response already carries the change digest.
+
+Tested in the Cursor app (2026.11.13) as a local plugin: after a `program_join`, the `stop` hook sent one follow-up, the agent answered it without writing anything, and it did not fire again. `afterMCPExecution` gets the bare tool name, `tool_input` as a JSON string, and `session_id` equal to `conversation_id`. In the Cursor CLI's print mode (`agent -p`) the `stop` hook does not run, and OAuth MCP servers report `needsAuth` even after `agent mcp login`, so test hooks in the app.
+
+If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code and Cursor both keep yours and skip the plugin's copy, so tools don't appear twice.
 
 ## Picking the program
 
@@ -54,7 +63,9 @@ claude plugin validate clients/claude-code --strict
 claude plugin validate . --strict
 ```
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell.
+Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
+
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Both clients share it: in Cursor an `afterMCPExecution` hook records each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`.
 
 ## Layout
 
@@ -67,6 +78,14 @@ clients/claude-code/              Claude Code plugin
   hooks/hooks.json
   scripts/serro-hook
   skills/{agent-exchange,program,sync,handoff}/SKILL.md
+.cursor-plugin/marketplace.json   Cursor marketplace (this repo)
+clients/cursor/                   Cursor plugin
+  .cursor-plugin/plugin.json
+  assets/icon.png
+  mcp.json
+  hooks/hooks.json                afterMCPExecution records joins; stop nudges once
+  scripts/serro-hook              same script as Claude Code
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 ```
 
-Next: hand-write the Cursor and Agent Plugins (Codex, Kiro, Cline, Copilot) clients, then extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.
+Next: hand-write the Agent Plugins (Codex, Kiro, Cline, Copilot) clients, then extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.

@@ -1,0 +1,7 @@
+{
+  "name": "serro",
+  "owner": { "name": "Serro" },
+  "plugins": [
+    { "name": "serro", "source": "clients/cursor" }
+  ]
+}

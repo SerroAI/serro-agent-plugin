@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterMCPExecution": [
+      { "command": "sh \"$CURSOR_PLUGIN_ROOT/scripts/serro-hook\" joined cursor", "timeout": 10 }
+    ],
+    "stop": [
+      { "command": "sh \"$CURSOR_PLUGIN_ROOT/scripts/serro-hook\" stop cursor", "timeout": 10, "loop_limit": 1 }
+    ]
+  }
+}

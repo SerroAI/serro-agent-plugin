@@ -1,0 +1,46 @@
+#!/bin/sh
+# Serro agent plugin hook. Prints context for the agent and never calls Serro:
+# the agent does the work over its own authenticated MCP connection.
+#
+# Usage: serro-hook prompt|stop   (hook input JSON on stdin)
+#
+# Silent until the agent has joined a Serro program in this session. The
+# program comes from the agent's own program_join call in the transcript, not
+# from the repo: one repo can belong to many programs.
+
+event="$1"
+input=$(cat)
+
+# Value of a string field in the hook input. Good enough for the flat fields used here.
+field() {
+	printf '%s' "$input" | tr '\n' ' ' |
+		sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+}
+
+transcript=$(field transcript_path)
+[ -n "$transcript" ] && [ -f "$transcript" ] || exit 0
+
+# Program ids from program_join tool calls ("name":"mcp__<server>__program_join"),
+# not from tool listings, which name every tool.
+programs=$(grep -E '"name"[[:space:]]*:[[:space:]]*"mcp__[^"]*__program_join"' "$transcript" |
+	sed -n 's/.*"program_id"[[:space:]]*:[[:space:]]*"\([0-9A-Fa-f-]*\)".*/\1/p' |
+	sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+[ -n "$programs" ] || exit 0
+
+case "$event" in
+prompt)
+	echo "Serro Agent Exchange: you joined program $programs in this session. Check program_fs_changes before relying on shared workspace state."
+	;;
+stop)
+	# Nudge once per session, and never while already continuing from a nudge.
+	printf '%s' "$input" | tr '\n' ' ' | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true' && exit 0
+	session=$(field session_id | tr -c 'A-Za-z0-9_-' '-')
+	state=${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/serro-agent-plugin}
+	mkdir -p "$state" 2>/dev/null
+	marker="$state/nudged-$session"
+	[ -e "$marker" ] && exit 0
+	: >"$marker" 2>/dev/null
+	printf '{"decision":"block","reason":"%s"}\n' "Before stopping: if this session produced something other agents on Serro program $programs need (a plan, a decision, a gotcha) or left work unfinished, write it to the Agent Exchange workspace now (for unfinished work, use the serro:handoff skill). If not, stop without writing anything."
+	;;
+esac
+exit 0

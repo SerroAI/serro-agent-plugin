@@ -33,7 +33,12 @@ joins="$state/joined-$session"
 if [ "$event" = joined ]; then
 	# tool_input may be an object or a JSON string, so allow escaped quotes.
 	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' || exit 0
-	printf '%s' "$input" | grep -q 'agent_id' || exit 0
+	# Only a successful join counts: the result (a JSON string) must return an
+	# agent_id and not be an error. tool_input text could mention agent_id too.
+	result=$(printf '%s' "$input" |
+		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	printf '%s' "$result" | grep -q 'agent_id[\\"]*[[:space:]]*:' || exit 0
+	printf '%s' "$result" | grep -q 'isError[\\"]*[[:space:]]*:[[:space:]]*true' && exit 0
 	id=$(printf '%s' "$input" |
 		sed -n 's/.*program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*\([0-9A-Fa-f-]\{36\}\).*/\1/p')
 	[ -n "$id" ] && echo "$id" >>"$joins"

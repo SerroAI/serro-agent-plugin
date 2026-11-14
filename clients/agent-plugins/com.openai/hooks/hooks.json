@@ -1,0 +1,21 @@
+{
+  "description": "Serro Agent Exchange: record program joins, remind about changes, nudge once before stopping.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__.*__program_join$",
+        "hooks": [{ "type": "command", "command": "sh \"$PLUGIN_ROOT/scripts/serro-hook\" joined codex", "timeout": 10 }]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{ "type": "command", "command": "sh \"$PLUGIN_ROOT/scripts/serro-hook\" prompt codex", "timeout": 10 }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "sh \"$PLUGIN_ROOT/scripts/serro-hook\" stop codex", "timeout": 10 }]
+      }
+    ]
+  }
+}

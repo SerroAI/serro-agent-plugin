@@ -1,0 +1,94 @@
+#!/bin/sh
+# Serro agent plugin hook. Prints context for the agent and never calls Serro:
+# the agent does the work over its own authenticated MCP connection.
+#
+# Usage: serro-hook joined|prompt|stop [claude|cursor|codex]   (hook input JSON on stdin)
+#
+#   joined  after an MCP tool call: records a successful program_join
+#   prompt  before each prompt: reminds the agent to check for changes
+#   stop    when the agent stops: nudges it once to write or hand off
+#
+# Silent until the agent has joined a Serro program in this session. The
+# program comes from the agent's own program_join call, never from the repo:
+# one repo can belong to many programs.
+
+event="$1"
+client="${2:-claude}"
+input=$(tr '\n' ' ')
+
+# Value of a flat string field in the hook input.
+field() {
+	printf '%s' "$input" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+}
+
+session=$(field session_id)
+[ -n "$session" ] || session=$(field conversation_id)
+session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_-' '-')
+[ -n "$session" ] || exit 0
+
+state=${CLAUDE_PLUGIN_DATA:-${PLUGIN_DATA:-${TMPDIR:-/tmp}/serro-agent-plugin}}
+mkdir -p "$state" 2>/dev/null
+joins="$state/joined-$session"
+
+if [ "$event" = joined ]; then
+	# tool_input may be an object or a JSON string, so allow escaped quotes.
+	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' || exit 0
+	# Only a successful join counts: the result must return an "agent_id" key
+	# with a UUID value. Serro reports failures as {"error": ..., "message": ...},
+	# sometimes without isError, and tool_input text could mention agent_id too.
+	# Cursor sends the result as the JSON string result_json (quotes escaped);
+	# Codex sends tool_response, an object that comes after tool_input.
+	result=$(printf '%s' "$input" |
+		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_response"[[:space:]]*:\(.*\)/\1/p')
+	printf '%s' "$result" |
+		grep -q '\\*"agent_id\\*"[[:space:]]*:[[:space:]]*\\*"[0-9A-Fa-f]\{8\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{12\}\\*"' || exit 0
+	printf '%s' "$result" | grep -q '\\*"error\\*"[[:space:]]*:' && exit 0
+	printf '%s' "$result" | grep -q '\\*"isError\\*"[[:space:]]*:[[:space:]]*true' && exit 0
+	id=$(printf '%s' "$input" |
+		sed -n 's/.*program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*\([0-9A-Fa-f-]\{36\}\).*/\1/p')
+	[ -n "$id" ] && echo "$id" >>"$joins"
+	exit 0
+fi
+
+# Programs joined in this session: recorded joins, plus, in Claude Code,
+# program_join calls in the transcript ("name":"mcp__<server>__program_join").
+# Tool listings name every tool, so only the call counts.
+transcript=
+[ "$client" = claude ] && transcript=$(field transcript_path)
+programs=$(
+	{
+		[ -f "$joins" ] && cat "$joins"
+		[ -n "$transcript" ] && [ -f "$transcript" ] &&
+			grep -E '"name"[[:space:]]*:[[:space:]]*"mcp__[^"]*__program_join"' "$transcript" |
+			sed -n 's/.*"program_id"[[:space:]]*:[[:space:]]*"\([0-9A-Fa-f-]*\)".*/\1/p'
+	} | sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g'
+)
+[ -n "$programs" ] || exit 0
+
+case "$client" in
+claude) handoff=serro:handoff ;;
+*) handoff=serro-handoff ;;
+esac
+
+case "$event" in
+prompt)
+	echo "Serro Agent Exchange: you joined program $programs in this session. Check program_fs_changes before relying on shared workspace state."
+	;;
+stop)
+	# Never while already continuing from a nudge, and only after a normal finish.
+	printf '%s' "$input" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true' && exit 0
+	printf '%s' "$input" | grep -q '"loop_count"[[:space:]]*:[[:space:]]*[1-9]' && exit 0
+	status=$(field status)
+	[ -z "$status" ] || [ "$status" = completed ] || exit 0
+	marker="$state/nudged-$session"
+	[ -e "$marker" ] && exit 0
+	: >"$marker" 2>/dev/null
+	nudge="Before stopping: if this session produced something other agents on Serro program $programs need (a plan, a decision, a gotcha) or left work unfinished, write it to the Agent Exchange workspace now (for unfinished work, use the $handoff skill). If not, stop without writing anything."
+	case "$client" in
+	cursor) printf '{"followup_message":"%s"}\n' "$nudge" ;;
+	*) printf '{"decision":"block","reason":"%s"}\n' "$nudge" ;;
+	esac
+	;;
+esac
+exit 0

@@ -19,7 +19,7 @@ Pick it per session, for the task at hand. One repo can belong to many programs,
 
 1. **Pull first.** Call `program_join(program_id, role, working_on)` once and keep the returned `agent_id`; pass it on every `program_*` call. Then `program_fs_ls`, read `README.md` and whatever is relevant to your task, and check `program_who`.
 2. **Push as you go**, like small commits, not one dump at the end (see the bar below).
-3. **Stay current.** When your focus changes, `program_heartbeat(working_on=...)`. Presence lapses after 10 minutes without a `program_*` call, so heartbeat before long work.
+3. **Stay current.** When your focus changes, `program_heartbeat(working_on=...)`. Presence lapses after 10 minutes without a `program_*` call, so during long work call `program_heartbeat` at least every few minutes.
 4. **Read the digest.** Every response carries `changes_since_your_last_call`. Act on what matters to your task.
 5. **To wait for another agent,** call `program_fs_changes(wait_s=25)` and repeat. Don't loop on `program_heartbeat` or `program_who`.
 6. **Before you stop** with work unfinished, write a handoff (`/serro-handoff`), then `program_leave`.

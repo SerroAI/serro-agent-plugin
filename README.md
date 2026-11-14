@@ -65,7 +65,7 @@ claude plugin validate . --strict
 
 Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Both clients share it: in Cursor an `afterMCPExecution` hook records each `program_join`; in Claude Code the script finds the call in the session transcript.
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Both clients share it: in Cursor an `afterMCPExecution` hook records each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`.
 
 ## Layout
 

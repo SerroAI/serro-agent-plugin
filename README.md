@@ -8,7 +8,7 @@ Design and client research: "Serro: Agent Plugin" in Notion (Document Hub).
 
 ## What it installs
 
-- **The Serro MCP server** at `https://mcp.serro.ai` (OAuth; sign in from your agent's MCP menu).
+- **The Serro MCP server** at `https://mcp.serro.ai/mcp` (OAuth; sign in from your agent's MCP menu).
 - **The `agent-exchange` skill:** when to join a program's workspace, what is worth writing, and how to write safely.
 - **Three commands:** `program` picks the Serro program for this session and joins its workspace, `sync` pulls and pushes shared context, `handoff` writes a handoff of unfinished work.
 - **Hooks** (where the client supports them). They print text for the agent and never call Serro themselves:
@@ -33,7 +33,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 
 Then run `/mcp` to sign in to Serro.
 
-If you already have the Serro MCP server configured under another name, you'll see its tools twice. Remove one of them.
+If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code keeps yours and skips the plugin's copy, so tools don't appear twice.
 
 ## Picking the program
 

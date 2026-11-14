@@ -2,7 +2,7 @@
   "mcpServers": {
     "serro": {
       "type": "http",
-      "url": "https://mcp.serro.ai"
+      "url": "https://mcp.serro.ai/mcp"
     }
   }
 }

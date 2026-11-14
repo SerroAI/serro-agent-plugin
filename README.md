@@ -22,7 +22,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Client | Status | Directory |
 | --- | --- | --- |
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
-| Cursor | Loads in the Cursor CLI; join recording verified. Stop nudge not yet seen firing (see below) | `clients/cursor` |
+| Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
 | Codex, Kiro, Cline, Antigravity, opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -40,9 +40,9 @@ Add this repo as a plugin marketplace (`/plugin marketplace add SerroAI/serro-ag
 
 Cursor can't add context before each prompt, so there is no per-prompt reminder there. Every Agent Exchange response already carries the change digest.
 
-Tested with the Cursor CLI (2026.11.13): the plugin's skills load, and `afterMCPExecution` records joins (Cursor passes the bare tool name, `tool_input` as a JSON string, and `session_id` equal to `conversation_id`). In print mode (`agent -p`) the `stop` hook did not run, and OAuth MCP servers report `needsAuth` even after `agent mcp login`, so the stop nudge still needs a check in the Cursor app.
+Tested in the Cursor app (2026.11.13) as a local plugin: after a `program_join`, the `stop` hook sent one follow-up, the agent answered it without writing anything, and it did not fire again. `afterMCPExecution` gets the bare tool name, `tool_input` as a JSON string, and `session_id` equal to `conversation_id`. In the Cursor CLI's print mode (`agent -p`) the `stop` hook does not run, and OAuth MCP servers report `needsAuth` even after `agent mcp login`, so test hooks in the app.
 
-If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code keeps yours and skips the plugin's copy, so tools don't appear twice.
+If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code and Cursor both keep yours and skip the plugin's copy, so tools don't appear twice.
 
 ## Picking the program
 

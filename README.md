@@ -22,7 +22,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Client | Status | Directory |
 | --- | --- | --- |
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
-| Cursor | Built; hook script tested with simulated input, not yet in Cursor | `clients/cursor` |
+| Cursor | Loads in the Cursor CLI; join recording verified. Stop nudge not yet seen firing (see below) | `clients/cursor` |
 | Codex, Kiro, Cline, Antigravity, opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -39,6 +39,8 @@ Then run `/mcp` to sign in to Serro.
 Add this repo as a plugin marketplace (`/plugin marketplace add SerroAI/serro-agent-plugin` in the Cursor CLI, or import it as a team marketplace), then install `serro`. Sign in to Serro from Cursor's MCP settings. Commands are `/serro-program`, `/serro-sync` and `/serro-handoff`.
 
 Cursor can't add context before each prompt, so there is no per-prompt reminder there. Every Agent Exchange response already carries the change digest.
+
+Tested with the Cursor CLI (2026.11.13): the plugin's skills load, and `afterMCPExecution` records joins (Cursor passes the bare tool name, `tool_input` as a JSON string, and `session_id` equal to `conversation_id`). In print mode (`agent -p`) the `stop` hook did not run, and OAuth MCP servers report `needsAuth` even after `agent mcp login`, so the stop nudge still needs a check in the Cursor app.
 
 If you already have the Serro MCP server configured at `https://mcp.serro.ai/mcp`, Claude Code keeps yours and skips the plugin's copy, so tools don't appear twice.
 

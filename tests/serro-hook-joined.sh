@@ -34,6 +34,10 @@ check "error text mentioning agent_id:" skipped \
 	"$start,$args,\"result_json\":\"{\\\"error\\\":\\\"missing agent_id: invalid\\\"}\"}"
 check "Serro error JSON without isError" skipped \
 	"$start,$args,\"result_json\":\"{\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"error\\\\\\\": \\\\\\\"invalid_argument\\\\\\\", \\\\\\\"message\\\\\\\": \\\\\\\"bad agent_id: x\\\\\\\"}\\\"}]}\"}"
+check "agent_id not a UUID" skipped \
+	"$start,$args,\"result_json\":\"{\\\"agent_id\\\":\\\"deadbeef-not-a-uuid\\\"}\"}"
+check "agent_id UUID with extra characters" skipped \
+	"$start,$args,\"result_json\":\"{\\\"agent_id\\\":\\\"${A}x\\\"}\"}"
 check "agent_id null" skipped \
 	"$start,$args,\"result_json\":\"{\\\"agent_id\\\":null}\"}"
 check "no result_json" skipped \

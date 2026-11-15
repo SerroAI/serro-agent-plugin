@@ -23,8 +23,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | --- | --- | --- |
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
-| Codex | Built (Agent Plugins package plus Codex hooks); not yet tested in Codex | `clients/agent-plugins` |
-| Kiro, Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
+| Codex | Built; loads in Codex 0.169 (skills, MCP and hooks), hooks not yet tested end to end | `clients/codex` |
+| Kiro, Cline, VS Code Copilot | Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
 | Antigravity, opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -54,7 +54,9 @@ codex plugin marketplace add SerroAI/serro-agent-plugin
 
 Then install `serro` from the plugin browser, and sign in to Serro when Codex asks. Codex asks you to review the plugin's hooks before they run (`/hooks` in the CLI, **Settings > Hooks** in the desktop app). Find the skills with `/skills`, or mention one by typing `$`.
 
-`clients/agent-plugins` is a portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package: root `plugin.json`, `mcp.json` and `skills/`, which Kiro, Cline and VS Code Copilot also read. Codex's hooks and display settings live under its own namespace (`extensions.com.openai` and `com.openai/`), which other clients ignore. The skills there use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` are marked user-only for Codex in `agents/openai.yaml` and say "use only when the user asks" for other clients.
+Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because Codex skips hooks in Agent Plugins packages: a root `plugin.json` is read as that format, and its loader (`codex-rs/core-plugins/src/loader.rs`) drops hooks for it even when `extensions.com.openai.hooks` is set. `serro-program` and `serro-sync` are user-only there (`agents/openai.yaml`).
+
+`clients/agent-plugins` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
 
 ## Picking the program
 
@@ -77,7 +79,7 @@ claude plugin validate . --strict
 
 Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
 
-Codex: `codex plugin marketplace add .` from the repo root, then install `serro` and trust its hooks with `/hooks`.
+Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
 The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client shares it: Cursor's `afterMCPExecution` and Codex's `PostToolUse` hooks record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical.
 
@@ -101,12 +103,16 @@ clients/cursor/                   Cursor plugin
   scripts/serro-hook              same script as Claude Code
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 .agents/plugins/marketplace.json  Codex marketplace (this repo)
-clients/agent-plugins/            Agent Plugins package: Codex, Kiro, Cline, VS Code Copilot
-  plugin.json                     portable manifest; Codex settings in extensions.com.openai
-  mcp.json
+clients/codex/                    Codex plugin
+  .codex-plugin/plugin.json
   assets/icon.png
-  com.openai/hooks/hooks.json     Codex only: PostToolUse records joins; prompt reminder; stop nudges once
+  .mcp.json
+  hooks/hooks.json                PostToolUse records joins; prompt reminder; stop nudges once
   scripts/serro-hook              same script as the other clients
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+clients/agent-plugins/            Agent Plugins package: Kiro, Cline, VS Code Copilot
+  plugin.json
+  mcp.json
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 tests/serro-hook-joined.sh
 ```

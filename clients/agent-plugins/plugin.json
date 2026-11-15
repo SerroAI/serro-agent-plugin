@@ -9,20 +9,11 @@
   },
   "homepage": "https://serro.ai",
   "repository": "https://github.com/SerroAI/serro-agent-plugin",
-  "keywords": ["serro", "agent-exchange", "mcp", "collaboration", "multi-agent"],
-  "extensions": {
-    "com.openai": {
-      "hooks": "./com.openai/hooks/hooks.json",
-      "interface": {
-        "displayName": "Serro",
-        "shortDescription": "Shared plans, decisions and handoffs between agents on a Serro program",
-        "developerName": "Serro",
-        "category": "Productivity",
-        "websiteURL": "https://serro.ai",
-        "privacyPolicyURL": "https://serro.ai/legal/privacy",
-        "composerIcon": "./assets/icon.png",
-        "logo": "./assets/icon.png"
-      }
-    }
-  }
+  "keywords": [
+    "serro",
+    "agent-exchange",
+    "mcp",
+    "collaboration",
+    "multi-agent"
+  ]
 }

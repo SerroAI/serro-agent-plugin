@@ -4,7 +4,7 @@
 # Run from the repo root: sh tests/serro-hook-joined.sh
 
 hook=clients/cursor/scripts/serro-hook
-for copy in clients/claude-code/scripts/serro-hook clients/agent-plugins/scripts/serro-hook; do
+for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook; do
 	cmp -s "$hook" "$copy" || { echo "FAIL: $copy differs from $hook"; exit 1; }
 done
 

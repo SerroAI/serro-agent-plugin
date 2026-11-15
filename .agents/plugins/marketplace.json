@@ -8,7 +8,7 @@
       "name": "serro",
       "source": {
         "source": "local",
-        "path": "./clients/agent-plugins"
+        "path": "./clients/codex"
       },
       "policy": {
         "installation": "AVAILABLE",

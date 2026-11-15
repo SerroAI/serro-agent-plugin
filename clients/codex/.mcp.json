@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "serro": {
+      "type": "streamable-http",
+      "url": "https://mcp.serro.ai/mcp"
+    }
+  }
+}

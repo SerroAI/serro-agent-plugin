@@ -9,6 +9,8 @@ for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-h
 done
 
 TMPDIR=$(mktemp -d); export TMPDIR
+# Hook state must land in $TMPDIR, even when run from inside a plugin's hook.
+unset CLAUDE_PLUGIN_DATA PLUGIN_DATA
 trap 'rm -rf "$TMPDIR"' EXIT
 P=2137fc71-a969-460d-a579-72153a9c0350
 A=527b90fb-b168-4aaf-ad07-f6c286612870

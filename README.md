@@ -25,7 +25,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro, Cline, VS Code Copilot | Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
-| Antigravity, opencode, pi, Hermes | Not started | |
+| pi | Working; tested headless (pi 1.5.2) against staging | `clients/pi` |
+| Antigravity, opencode, Hermes | Not started | |
 
 ## Install (Claude Code)
 
@@ -60,6 +61,18 @@ Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because 
 
 `clients/agent-plugins` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
 
+## Install (pi)
+
+```sh
+pi install npm:@serroai/pi
+```
+
+(Not on npm yet. Until then: `pi install ./clients/pi` from a checkout.) Then run `/mcp` and sign in to `serro`. Run the user-only skills with `/skill:serro-program` and `/skill:serro-sync`; the model loads `agent-exchange` and `serro-handoff` on its own.
+
+pi has no hook files, so `extensions/serro.ts` feeds pi's events to the shared hook script: `tool_result` records a successful `program_join`, `before_agent_start` adds the reminder as a `<serro>` system prompt section, and `agent_before_settle` adds the nudge and asks for one continuation. State lives in `~/.pi/agent/serro/`. pi hides MCP tools behind codemode by default, so the extension declares the `program_*` tools and `list_programs` directly and leaves the rest of Serro's tools to `tool_search`. A server named `serro` in your own `mcp.json` replaces the plugin's. `SERRO_MCP_URL` points the plugin at another Serro deployment, such as staging.
+
+Tested headless (`pi -p`, pi 1.5.2) with the extension loaded: a `program_join` made from a codemode script was recorded, the nudge started one more run in which the agent stopped without writing, the next prompt in the session carried the `<serro>` section, and no second nudge fired. pi lists the package in its gallery (pi.dev/packages) once it is on npm with the `pi-package` keyword.
+
 ## Picking the program
 
 A repo can belong to many Serro programs (monorepos especially), so nothing is stored per repo. Each session picks its program when collaboration comes up: the agent matches programs against the task, the branch and any ticket keys, and asks when more than one fits. `/serro:program` does the same on request. The hooks read the program from the agent's own `program_join` call.
@@ -83,7 +96,9 @@ Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) 
 
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client shares it: Cursor's `afterMCPExecution` and Codex's `PostToolUse` hooks record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical.
+pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin closed (`< /dev/null`), or pi waits for it.
+
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse` and pi's `tool_result` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical.
 
 ## Layout
 
@@ -115,6 +130,11 @@ clients/codex/                    Codex plugin
 clients/agent-plugins/            Agent Plugins package: Kiro, Cline, VS Code Copilot
   plugin.json
   mcp.json
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+clients/pi/                       pi package (npm @serroai/pi)
+  package.json                    "pi" key: extension and skills; pi-package keyword for the gallery
+  extensions/serro.ts             MCP server; runs serro-hook on tool_result, before_agent_start, agent_before_settle
+  scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 tests/serro-hook-joined.sh
 ```

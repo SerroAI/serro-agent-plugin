@@ -24,7 +24,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
-| Kiro, Cline, VS Code Copilot | Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
+| Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
+| Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
 | Antigravity, opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -58,7 +59,15 @@ Tested in the Codex CLI (0.169) as a local marketplace: after a `program_join`, 
 
 Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because Codex skips hooks in Agent Plugins packages: a root `plugin.json` is read as that format, and its loader (`codex-rs/core-plugins/src/loader.rs`) drops hooks for it even when `extensions.com.openai.hooks` is set. `serro-program` and `serro-sync` are user-only there (`agents/openai.yaml`).
 
-`clients/agent-plugins` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
+`clients/agent-plugins/serro` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
+
+## Install (Kiro)
+
+In the **Powers** panel, choose **Add Custom Power**, then import `clients/agent-plugins/serro` from GitHub or from a local folder. Sign in to Serro when the MCP server asks. Kiro loads the power when a message mentions one of its `keywords` (`serro`, `agent exchange`), and adds the MCP server as `power-serro-serro`.
+
+Kiro names an imported power, and its MCP server, after the power's folder, not the manifest's `name`. That is why the package sits in a folder called `serro`.
+
+Tested in the Kiro IDE (1.4.178) by importing a staging copy from a local folder: the remote OAuth MCP server connected, the keyword in "Use Serro Agent Exchange to join program …" loaded the power, and the agent joined and left the program. Kiro reports its MCP client as `kiro` with version `0.0.0`. A power can't ship hooks, so Kiro gets no reminder or stop nudge.
 
 ## Picking the program
 
@@ -112,7 +121,7 @@ clients/codex/                    Codex plugin
   hooks/hooks.json                PostToolUse records joins; prompt reminder; stop nudges once
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
-clients/agent-plugins/            Agent Plugins package: Kiro, Cline, VS Code Copilot
+clients/agent-plugins/serro/      Agent Plugins package: Kiro, Cline, VS Code Copilot (folder name = Kiro power name)
   plugin.json
   mcp.json
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md

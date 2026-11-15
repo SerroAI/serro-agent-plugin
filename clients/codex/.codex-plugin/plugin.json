@@ -1,0 +1,30 @@
+{
+  "name": "serro",
+  "version": "0.1.0",
+  "description": "Serro for coding agents: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
+  "author": {
+    "name": "Serro",
+    "url": "https://serro.ai"
+  },
+  "homepage": "https://serro.ai",
+  "repository": "https://github.com/SerroAI/serro-agent-plugin",
+  "keywords": [
+    "serro",
+    "agent-exchange",
+    "mcp",
+    "collaboration",
+    "multi-agent"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Serro",
+    "shortDescription": "Shared plans, decisions and handoffs between agents on a Serro program",
+    "developerName": "Serro",
+    "category": "Productivity",
+    "websiteURL": "https://serro.ai",
+    "privacyPolicyURL": "https://serro.ai/legal/privacy",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}

@@ -84,7 +84,7 @@ stop)
 	marker="$state/nudged-$session"
 	[ -e "$marker" ] && exit 0
 	: >"$marker" 2>/dev/null
-	nudge="Before stopping: if this session produced something other agents on Serro program $programs need (a plan, a decision, a gotcha) or left work unfinished, write it to the Agent Exchange workspace now (for unfinished work, use the $handoff skill). If not, stop without writing anything."
+	nudge="Serro: before stopping, if this session produced something other agents on Serro program $programs need (a plan, a decision, a gotcha) or left work unfinished, write it to the Agent Exchange workspace now (for unfinished work, use the $handoff skill). If not, stop without writing anything."
 	case "$client" in
 	cursor) printf '{"followup_message":"%s"}\n' "$nudge" ;;
 	*) printf '{"decision":"block","reason":"%s"}\n' "$nudge" ;;

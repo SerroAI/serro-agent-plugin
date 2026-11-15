@@ -73,7 +73,7 @@ silent() {
 }
 stop='{"session_id":"c1","hook_event_name":"Stop","stop_hook_active":false}'
 expect "codex: prompt reminder" "joined program $P" "$(printf '%s' '{"session_id":"c1","prompt":"hi"}' | sh "$hook" prompt codex)"
-expect "codex: stop nudge" '^{"decision":"block","reason":"Before stopping.*serro-handoff skill' "$(printf '%s' "$stop" | sh "$hook" stop codex)"
+expect "codex: stop nudge" '^{"decision":"block","reason":"Serro: before stopping.*serro-handoff skill' "$(printf '%s' "$stop" | sh "$hook" stop codex)"
 silent "codex: second stop is silent" "$(printf '%s' "$stop" | sh "$hook" stop codex)"
 rm -f "$TMPDIR/serro-agent-plugin/nudged-c1"
 silent "codex: no nudge while continuing" "$(printf '%s' '{"session_id":"c1","stop_hook_active":true}' | sh "$hook" stop codex)"

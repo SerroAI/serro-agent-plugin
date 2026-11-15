@@ -23,7 +23,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | --- | --- | --- |
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
-| Codex | Built; loads in Codex 0.169 (skills, MCP and hooks), hooks not yet tested end to end | `clients/codex` |
+| Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro, Cline, VS Code Copilot | Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
 | Antigravity, opencode, pi, Hermes | Not started | |
 
@@ -53,6 +53,8 @@ codex plugin marketplace add SerroAI/serro-agent-plugin
 ```
 
 Then install `serro` from the plugin browser, and sign in to Serro when Codex asks. Codex asks you to review the plugin's hooks before they run (`/hooks` in the CLI, **Settings > Hooks** in the desktop app). Find the skills with `/skills`, or mention one by typing `$`.
+
+Tested in the Codex CLI (0.169) as a local marketplace: after a `program_join`, `PostToolUse` recorded the join, the `Stop` hook blocked once with the nudge, the agent stopped without writing, and the hook did not fire again. Codex keeps the hook state in `~/.codex/plugins/data/serro-serro/`.
 
 Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because Codex skips hooks in Agent Plugins packages: a root `plugin.json` is read as that format, and its loader (`codex-rs/core-plugins/src/loader.rs`) drops hooks for it even when `extensions.com.openai.hooks` is set. `serro-program` and `serro-sync` are user-only there (`agents/openai.yaml`).
 
@@ -117,4 +119,4 @@ clients/agent-plugins/            Agent Plugins package: Kiro, Cline, VS Code Co
 tests/serro-hook-joined.sh
 ```
 
-Next: test in Codex, then extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.
+Next: extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.

@@ -2,7 +2,7 @@
 # Serro agent plugin hook. Prints context for the agent and never calls Serro:
 # the agent does the work over its own authenticated MCP connection.
 #
-# Usage: serro-hook joined|prompt|stop [claude|cursor|codex|pi|antigravity]   (hook input JSON on stdin)
+# Usage: serro-hook joined|prompt|stop [claude|cursor|codex|pi|antigravity|opencode]   (hook input JSON on stdin)
 #
 #   joined  after an MCP tool call: records a successful program_join
 #   prompt  before each prompt: reminds the agent to check for changes

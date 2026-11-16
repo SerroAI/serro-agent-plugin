@@ -6,7 +6,8 @@
 
 hook=clients/cursor/scripts/serro-hook
 for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook \
-	clients/pi/scripts/serro-hook clients/antigravity/scripts/serro-hook; do
+	clients/pi/scripts/serro-hook clients/antigravity/scripts/serro-hook \
+	clients/opencode/scripts/serro-hook; do
 	cmp -s "$hook" "$copy" || { echo "FAIL: $copy differs from $hook"; exit 1; }
 done
 

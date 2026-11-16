@@ -28,8 +28,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
-| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging. Sign-in needs SerroAI/serro-mcp#169, on staging and not yet on prod | `clients/antigravity` |
-| opencode | Not started | |
+| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod. Sign-in needed SerroAI/serro-mcp#169 | `clients/antigravity` |
+| opencode | Working; tested headless in opencode (2.3.0) against staging | `clients/opencode` |
 
 ## Install (Claude Code)
 
@@ -115,9 +115,32 @@ The plugin runs the shared hook script from `hooks.json`:
 
 State lives in `PLUGIN_DATA` (`~/.gemini/antigravity-cli/plugin_data/serro/`).
 
-Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in. SerroAI/serro-mcp#169 fixed that on staging; prod needs it promoted. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
+Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in. SerroAI/serro-mcp#169 fixed that, on prod since 2026-11-16. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
 
 Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the package pointed at staging. Interactive: signing in from `/plugin` worked, and `/serro:serro-program Serro Security Maintenance` picked and joined the program. Headless (`agy -p`): the join was recorded at the turn's `Stop`, the nudge ran one continuation, the next turn's first model call carried the reminder, and no second nudge fired. In print mode Antigravity can't ask for MCP permission, so the test passed `--settings '{"permissions":{"allow":["mcp(serro_serro/*)","mcp(serro_serro)"]}}'`, which applies to that run only.
+
+## Install (opencode)
+
+```sh
+opencode plugin add @serroai/opencode
+```
+
+(Not on npm yet. Until then, list the package directory in `opencode.json`: `"plugins": ["file:///path/to/clients/opencode"]`.) Then sign in with `opencode mcp auth serro`, or from `/mcps` in the TUI. The commands are `/serro-program`, `/serro-sync` and `/serro-handoff`; opencode's skills aren't slash commands, so each command sends its skill to the session as a prompt. The model loads `agent-exchange` and `serro-handoff` on its own; `serro-program` and `serro-sync` are user-only (`autoinvoke` off).
+
+This is an opencode 2 server plugin (`@opencode/plugin`); opencode 1 plugins don't load in 2, and this one doesn't load in 1. `index.ts` adds the MCP server and skills through opencode's transforms and feeds opencode's events to the shared hook script:
+- `tool` `execute.after` records a successful `program_join`. opencode's code mode runs MCP calls inside its `execute` tool (`tools.serro.program_join(...)`), and those calls still reach tool hooks.
+- `session` `prompt` works out the reminder once per user prompt, and `context` adds it as a system part to each model call in that turn.
+- `session` `experimental.idle` runs the nudge when the session would go idle, and admits it with `session.synthetic`, so the agent answers it in the same run. The hook is in the 2.3.0 plugin types but not yet in opencode's docs.
+
+State lives in `~/.local/share/opencode/serro/`. A server named `serro` in your own config replaces the plugin's. To point the plugin at another Serro deployment, give it a `url` option. A local package needs the `file://` form there:
+
+```json
+{ "plugins": [{ "package": "file:///path/to/clients/opencode", "options": { "url": "https://mcp-staging.serro.ai/mcp" } }] }
+```
+
+`SERRO_MCP_URL` also works, but only in the environment of opencode's background service (`opencode serve --service`), which runs plugins for the TUI and the CLI alike. Setting it on an `opencode` command doesn't reach the plugin.
+
+Tested headless (`opencode run`, opencode 2.3.0, Claude Sonnet 5.5 on Amazon Bedrock) against staging: the join was recorded, the idle nudge ran one more step in which the agent stopped without writing, the next prompt in the session carried the reminder, and no second nudge fired. opencode has no plugin marketplace: plugins are npm packages, installed with `opencode plugin add`.
 
 ## Picking the program
 
@@ -140,6 +163,8 @@ claude plugin validate . --strict
 
 Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
 
+opencode: list `file:///path/to/clients/opencode` under `plugins` in a project's `opencode.json`; the background service reads it from there. `opencode plugin list` in that directory shows whether it loaded.
+
 Antigravity: `agy plugin install ./clients/antigravity` installs a copy, so reinstall after changing the package. `agy plugin validate clients/antigravity --strict` checks it.
 
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
@@ -148,7 +173,7 @@ pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin
 
 Hermes: copy `clients/hermes` to `~/.hermes/plugins/serro`, then run `hermes plugins enable serro`. After changing the copy, run `hermes plugins disable serro` and enable it again: `hermes chat` runs in the Hermes gateway, which keeps the loaded code until then. `hermes plugins validate clients/hermes` runs the catalog's checks.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse`, pi's `tool_result` and Antigravity's `PostToolUse` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse`, pi's `tool_result`, Antigravity's `PostToolUse` and opencode's `execute.after` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
 
 ## Layout
 
@@ -195,6 +220,11 @@ clients/antigravity/              Antigravity plugin
   assets/icon.png
   mcp_config.json
   hooks.json                      PostToolUse records joins; PreInvocation reminder; Stop nudges once
+  scripts/serro-hook              same script as the other clients
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+clients/opencode/                 opencode 2 plugin (npm @serroai/opencode)
+  package.json
+  index.ts                        MCP server, skills, commands; runs serro-hook on tool and session hooks
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 tests/serro-hook-joined.sh

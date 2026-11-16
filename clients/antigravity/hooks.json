@@ -2,7 +2,7 @@
   "serro": {
     "PostToolUse": [
       {
-        "matcher": ".*program_join",
+        "matcher": "call_mcp_tool|.*program_join",
         "hooks": [{ "command": "sh ./scripts/serro-hook joined antigravity", "timeout": 10 }]
       }
     ],

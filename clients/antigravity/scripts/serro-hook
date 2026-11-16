@@ -30,38 +30,60 @@ session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_-' '-')
 state=${CLAUDE_PLUGIN_DATA:-${PLUGIN_DATA:-${TMPDIR:-/tmp}/serro-agent-plugin}}
 mkdir -p "$state" 2>/dev/null
 joins="$state/joined-$session"
+pending="$state/pending-$session"
+
+# Only a successful join counts: the result must return an "agent_id" key
+# with a UUID value. Serro reports failures as {"error": ..., "message": ...},
+# sometimes without isError, and tool_input text could mention agent_id too.
+succeeded() {
+	printf '%s' "$1" |
+		grep -q '\\*"agent_id\\*"[[:space:]]*:[[:space:]]*\\*"[0-9A-Fa-f]\{8\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{12\}\\*"' &&
+		! printf '%s' "$1" | grep -q '\\*"error\\*"[[:space:]]*:' &&
+		! printf '%s' "$1" | grep -q '\\*"isError\\*"[[:space:]]*:[[:space:]]*true'
+}
 
 if [ "$event" = joined ]; then
 	# tool_input may be an object or a JSON string, so allow escaped quotes.
-	# Antigravity names the tool in toolCall.name.
+	# Antigravity calls MCP tools through call_mcp_tool, naming the tool in
+	# toolCall.args.ToolName.
 	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' ||
 		{ [ "$client" = antigravity ] &&
-			printf '%s' "$input" | grep -q '"name"[[:space:]]*:[[:space:]]*"[^"]*program_join"'; } || exit 0
-	# Only a successful join counts: the result must return an "agent_id" key
-	# with a UUID value. Serro reports failures as {"error": ..., "message": ...},
-	# sometimes without isError, and tool_input text could mention agent_id too.
-	# Cursor sends the result as the JSON string result_json (quotes escaped);
-	# Codex sends tool_response, an object that comes after tool_input.
-	# Antigravity sends no result: it is the transcript step with the call's
-	# stepIdx, and a non-empty "error" means the call failed.
-	result=$(printf '%s' "$input" |
-		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
-	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_response"[[:space:]]*:\(.*\)/\1/p')
+			printf '%s' "$input" | grep -Eq '"(name|ToolName)"[[:space:]]*:[[:space:]]*"[^"]*program_join"'; } || exit 0
+	id=$(printf '%s' "$input" |
+		sed -n 's/.*program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*\([0-9A-Fa-f-]\{36\}\).*/\1/p')
+	[ -n "$id" ] || exit 0
+	# Antigravity sends no result, and writes it to the transcript only after
+	# this hook: the join waits in pending-<session> with the call's stepIdx
+	# until a later hook finds that step (below). A non-empty "error" means
+	# the call itself failed.
 	if [ "$client" = antigravity ]; then
 		[ -z "$(field error)" ] || exit 0
 		step=$(printf '%s' "$input" | sed -n 's/.*"stepIdx"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
-		transcript=$(field transcriptPath)
-		[ -n "$step" ] && [ -f "$transcript" ] &&
-			result=$(grep "^{\"step_index\":$step," "$transcript" | tail -n 1)
+		[ -n "$step" ] && echo "$id $step" >>"$pending"
+		exit 0
 	fi
-	printf '%s' "$result" |
-		grep -q '\\*"agent_id\\*"[[:space:]]*:[[:space:]]*\\*"[0-9A-Fa-f]\{8\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{12\}\\*"' || exit 0
-	printf '%s' "$result" | grep -q '\\*"error\\*"[[:space:]]*:' && exit 0
-	printf '%s' "$result" | grep -q '\\*"isError\\*"[[:space:]]*:[[:space:]]*true' && exit 0
-	id=$(printf '%s' "$input" |
-		sed -n 's/.*program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*\([0-9A-Fa-f-]\{36\}\).*/\1/p')
-	[ -n "$id" ] && echo "$id" >>"$joins"
+	# Cursor sends the result as the JSON string result_json (quotes escaped);
+	# Codex sends tool_response, an object that comes after tool_input.
+	result=$(printf '%s' "$input" |
+		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_response"[[:space:]]*:\(.*\)/\1/p')
+	succeeded "$result" && echo "$id" >>"$joins"
 	exit 0
+fi
+
+# Antigravity joins waiting for their result: settle each one whose step the
+# transcript now has, and keep the rest waiting.
+if [ -s "$pending" ]; then
+	transcript=$(field transcriptPath)
+	while read -r id step; do
+		result=$(grep "^{\"step_index\":$step," "$transcript" 2>/dev/null | tail -n 1)
+		if [ -z "$result" ]; then
+			echo "$id $step"
+		elif succeeded "$result"; then
+			echo "$id" >>"$joins"
+		fi
+	done <"$pending" >"$pending.new"
+	mv "$pending.new" "$pending"
 fi
 
 # Programs joined in this session: recorded joins, plus, in Claude Code,

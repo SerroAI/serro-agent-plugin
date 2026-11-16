@@ -26,7 +26,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
 | Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
-| Antigravity | Built; hooks tested in the Antigravity CLI (1.5.9). Sign-in waits on a serro-mcp fix (SerroAI/serro-mcp#169) | `clients/antigravity` |
+| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging. Sign-in needs SerroAI/serro-mcp#169, on staging and not yet on prod | `clients/antigravity` |
 | opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -76,18 +76,18 @@ Tested in the Kiro IDE (1.4.178) by importing a staging copy from a local folder
 agy plugin install ./clients/antigravity
 ```
 
-That installs from a checkout; `/plugin` in the CLI can also install from a local folder. Then open `/plugin`, expand **serro** under **Installed**, and sign in. Antigravity names the plugin's MCP server `serro_serro` (`<plugin>_<server>`). The skills keep their names and are slash commands: `/serro-program`, `/serro-sync` and `/serro-handoff`.
+That installs from a checkout; `/plugin` in the CLI can also install from a local folder. Then open `/plugin`, expand **serro** under **Installed**, and choose **Sign in**. Antigravity names the plugin's MCP server `serro_serro` (`<plugin>_<server>`). The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`; the model sees the skills by their own names.
 
 The plugin runs the shared hook script from `hooks.json`:
-- `PostToolUse` on `program_join` records a successful join. Antigravity sends the call but not its result, so the script reads the result from the session transcript: the step whose `step_index` is the call's `stepIdx`.
+- `PostToolUse` records a successful join. The model calls MCP tools through Antigravity's `call_mcp_tool`, so the hook matches that and checks `toolCall.args.ToolName`. Antigravity sends no result, and writes it to the session transcript only after the hook returns. So the join waits in `pending-<session>` with the call's `stepIdx`, and the next `Stop` or `PreInvocation` hook checks the transcript step with that `step_index` and records it if it succeeded.
 - `PreInvocation` adds the reminder as a system message, at the first model call of each turn (`invocationNum` 0).
 - `Stop` asks for one continuation with the nudge. It skips continuations (`executionNum` above 0); `continuationActive` stayed false on the Stop that followed a continuation, so the script doesn't rely on it.
 
 State lives in `PLUGIN_DATA` (`~/.gemini/antigravity-cli/plugin_data/serro/`).
 
-Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in; SerroAI/serro-mcp#169 fixes that. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
+Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in. SerroAI/serro-mcp#169 fixed that on staging; prod needs it promoted. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
 
-Tested in the Antigravity CLI (1.5.9) with a probe plugin that recorded each hook's input: the payload fields above, a `Stop` continuation that ran once, and the transcript format.
+Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the package pointed at staging. Interactive: signing in from `/plugin` worked, and `/serro:serro-program Serro Security Maintenance` picked and joined the program. Headless (`agy -p`): the join was recorded at the turn's `Stop`, the nudge ran one continuation, the next turn's first model call carried the reminder, and no second nudge fired. In print mode Antigravity can't ask for MCP permission, so the test passed `--settings '{"permissions":{"allow":["mcp(serro_serro/*)","mcp(serro_serro)"]}}'`, which applies to that run only.
 
 ## Picking the program
 

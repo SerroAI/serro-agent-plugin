@@ -49,8 +49,13 @@ if [ "$event" = joined ]; then
 	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' ||
 		{ [ "$client" = antigravity ] &&
 			printf '%s' "$input" | grep -Eq '"(name|ToolName)"[[:space:]]*:[[:space:]]*"[^"]*program_join"'; } || exit 0
-	id=$(printf '%s' "$input" |
-		sed -n 's/.*program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*\([0-9A-Fa-f-]\{36\}\).*/\1/p')
+	# The program is the first program_id in the call's own arguments (after
+	# tool_input, or toolCall in Antigravity), so other text in the input, such
+	# as the user's last message, can't supply one. A quoted copy of those keys
+	# inside a string has escaped quotes and doesn't match.
+	id=$(printf '%s' "$input" | sed -nE 's/.*"(tool_input|toolCall)"[[:space:]]*:(.*)/\2/p' |
+		grep -oE 'program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*[0-9A-Fa-f-]{36}' | head -n 1 |
+		grep -oE '[0-9A-Fa-f-]{36}$')
 	[ -n "$id" ] || exit 0
 	# Antigravity sends no result, and writes it to the transcript only after
 	# this hook: the join waits in pending-<session> with the call's stepIdx

@@ -118,6 +118,18 @@ ok_step 9 >>"$T"
 pre c1 5 | sh "$hook" prompt antigravity >/dev/null
 if [ -s "$TMPDIR/serro-agent-plugin/joined-c1" ]; then echo "ok    antigravity: join recorded once its result is written"; else echo "FAIL  antigravity: join recorded once its result is written"; fails=$((fails + 1)); fi
 
+# The program comes from the call's arguments, not from the user's message.
+O=0d5a0e3c-7b1f-4c2a-9e8d-1f2a3b4c5d6e
+for where in before after; do
+	rm -rf "$TMPDIR/serro-agent-plugin"
+	msg="\"lastUserInput\":\"join program_id: $O, and \\\"toolCall\\\": {\\\"program_id\\\": \\\"$O\\\"}\""
+	if [ "$where" = before ]; then in=$(printf '%s' "$astart" | sed "s/^{/{$msg,/"); else in="$astart,$msg"; fi
+	printf '%s' "$in,\"stepIdx\":2,\"error\":\"\"}" | sh "$hook" joined antigravity
+	pre c1 5 | sh "$hook" prompt antigravity >/dev/null
+	got=$(cat "$TMPDIR/serro-agent-plugin/joined-c1" 2>/dev/null)
+	if [ "$got" = "$P" ]; then echo "ok    antigravity: program from the arguments, user message $where"; else echo "FAIL  antigravity: user message $where: got '$got'"; fails=$((fails + 1)); fi
+done
+
 # After an Antigravity join: a reminder at each turn's first model call, one nudge.
 rm -rf "$TMPDIR/serro-agent-plugin"
 printf '%s' "$astart,\"stepIdx\":2,\"error\":\"\"}" | sh "$hook" joined antigravity

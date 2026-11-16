@@ -25,7 +25,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
-| Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
+| Cline | Working in the VS Code extension (4.1.26) against staging: skills from the Agent Plugins package, and the MCP server added by the user. No plugin slash commands or hooks | `clients/agent-plugins/serro` |
+| VS Code Copilot | Same Agent Plugins package; not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
 | Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod. Sign-in needed SerroAI/serro-mcp#169 | `clients/antigravity` |
@@ -72,6 +73,30 @@ Kiro names an imported power, and its MCP server, after the power's folder, not 
 
 Tested in the Kiro IDE (1.4.178) by importing a staging copy from a local folder: the remote OAuth MCP server connected, the keyword in "Use Serro Agent Exchange to join program …" loaded the power, the agent joined and left the program, and `/serro-program` picked and joined a program. Kiro reports its MCP client as `kiro` with version `0.0.0`. A power can't ship hooks, so Kiro gets no reminder or stop nudge.
 
+## Install (Cline)
+
+The VS Code extension (4.1.26) reads Agent Plugins packages only from `~/.agents/plugins`. Copy `clients/agent-plugins/serro` there. Then add the Serro server to `~/.cline/data/settings/cline_mcp_settings.json` (**Customize** > **MCP** > **Edit Configuration**) and sign in from the MCP panel:
+
+```json
+{
+  "mcpServers": {
+    "serro": { "type": "streamableHttp", "url": "https://mcp.serro.ai/mcp", "disabled": false }
+  }
+}
+```
+
+Keep `"type": "streamableHttp"`: without it Cline uses SSE.
+
+What a package can and can't do in Cline:
+- Skills load, under the plugin's name (`serro:serro-program`), and the model runs them when asked.
+- Cline loads the package's own MCP server as `serro.serro` but never signs it in (its log says the server "requires OAuth authorization" and skips it), so the server has to be the settings entry above. Each session still tries `serro.serro` and gets a harmless 401.
+- Skills aren't slash commands. The `/` menu lists built-ins, workflow files (`~/Documents/Cline/Workflows/*.md`) and MCP prompts.
+- A package can't ship hooks. Cline's own hook files (`~/Documents/Cline/Hooks`) could add the reminder (`UserPromptSubmit`) and record joins (`PostToolUse`, which gets the result), but `TaskComplete` can't make the agent continue, so there's no nudge. Not shipped.
+
+Cline keeps the sign-in (the client registration and tokens) inside `cline_mcp_settings.json`, so don't commit or share that file, and anything that writes it must merge rather than overwrite. After a network drop, Cline can stop reconnecting the server and leave it with no tools; reloading the window brings it back.
+
+Tested in Cline 4.1.26 (VS Code) against staging: the four skills appeared under **Global** in **Customize** > **Skills**, and with the settings entry signed in, "Use the serro-program skill to join …" loaded `serro:serro-program` and joined the program. Cline reports its MCP client as `Cline` with its version. A one-click install of the server would come from Cline's marketplace (`cline/marketplace`, one PR per entry under `registry/mcps/`), which writes the settings file.
+
 ## Install (pi)
 
 ```sh
@@ -92,13 +117,13 @@ hermes plugins install SerroAI/serro-agent-plugin#clients/hermes
 hermes plugins enable serro
 ```
 
-Sign in to Serro when Hermes asks, or later with `hermes mcp login serro`. The skills are `serro:agent-exchange`, `serro:program`, `serro:sync` and `serro:handoff`, and each is also a slash command (`/serro:program` and so on).
+Sign in to Serro when Hermes asks, or later with `hermes mcp login serro`. Hermes shows `after-install.md` after the install, with the `hermes mcp add` step. The skills are `serro:agent-exchange`, `serro:program`, `serro:sync` and `serro:handoff`, and each is also a slash command (`/serro:program` and so on) in the CLI, TUI and Desktop; messaging platforms list only skills on disk.
 
 Hermes gets a native plugin (`plugin.yaml` and `__init__.py`), not the Agent Plugins package. Hermes loads Agent Plugins packages, but it signs in to an MCP server only when its config says `auth: oauth`, which a package's `mcp.json` can't set, and packages can't run hooks. A native plugin can't ship an MCP server, so the Serro server is the user's own entry, added above.
 
 The plugin ports `serro-hook` to Hermes hooks in Python, with the same text: `post_tool_call` records a successful `program_join`, `pre_llm_call` adds the reminder to each prompt, `pre_verify` adds the nudge, and `post_compaction` keeps the record when compaction starts a new session id. Hermes has no general stop hook: `pre_verify` fires only on turns where the agent edited files, so the nudge comes at the end of the first such turn after a join. Joins are kept in `~/.hermes/plugin-data/serro/`, one file per session as `serro-hook` keeps them, so a resumed session keeps them.
 
-Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit) and remote MCP servers in a separate catalog (`optional-mcps/`).
+Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit). Its catalog of remote MCP servers (`optional-mcps/`) has taken no new entries since 2026-10-29, so the Serro server stays a `hermes mcp add`. No Hermes release lets a plugin sign in to its own MCP server: a package's `mcp.json` can't set `auth: oauth`, and every sign-in route refuses servers that come from a plugin (open upstream: NousResearch/hermes-agent#87253, #100443).
 
 ## Install (Antigravity)
 
@@ -213,6 +238,7 @@ clients/pi/                       pi package (npm @serroai/pi)
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 clients/hermes/                   Hermes plugin
   plugin.yaml
+  after-install.md                shown after install: the hermes mcp add step
   __init__.py                     skills; post_tool_call records joins; prompt reminder; pre_verify nudges once; post_compaction keeps joins
   skills/{agent-exchange,program,sync,handoff}/SKILL.md
 clients/antigravity/              Antigravity plugin

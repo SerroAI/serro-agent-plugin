@@ -1,0 +1,12 @@
+{
+  "serro": {
+    "PostToolUse": [
+      {
+        "matcher": "call_mcp_tool|.*program_join",
+        "hooks": [{ "command": "sh ./scripts/serro-hook joined antigravity", "timeout": 10 }]
+      }
+    ],
+    "PreInvocation": [{ "command": "sh ./scripts/serro-hook prompt antigravity", "timeout": 10 }],
+    "Stop": [{ "command": "sh ./scripts/serro-hook stop antigravity", "timeout": 10 }]
+  }
+}

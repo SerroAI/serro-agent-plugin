@@ -1,0 +1,18 @@
+{
+  "name": "serro",
+  "displayName": "Serro",
+  "version": "0.1.0",
+  "description": "Serro for coding agents: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
+  "author": {
+    "name": "Serro",
+    "url": "https://serro.ai"
+  },
+  "homepage": "https://serro.ai",
+  "repository": "https://github.com/SerroAI/serro-agent-plugin",
+  "logo": "assets/icon.png",
+  "suggestedPrompts": [
+    "Pick the Serro program for this task and join its Agent Exchange workspace",
+    "Sync with the Serro program's workspace: what changed since I last looked?",
+    "Write a handoff for the work I'm leaving unfinished"
+  ]
+}

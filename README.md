@@ -28,7 +28,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
-| Antigravity, opencode | Not started | |
+| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging. Sign-in needs SerroAI/serro-mcp#169, on staging and not yet on prod | `clients/antigravity` |
+| opencode | Not started | |
 
 ## Install (Claude Code)
 
@@ -99,6 +100,25 @@ The plugin ports `serro-hook` to Hermes hooks in Python, with the same text: `po
 
 Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit) and remote MCP servers in a separate catalog (`optional-mcps/`).
 
+## Install (Antigravity)
+
+```sh
+agy plugin install ./clients/antigravity
+```
+
+That installs from a checkout; `/plugin` in the CLI can also install from a local folder. Then open `/plugin`, expand **serro** under **Installed**, and choose **Sign in**. Antigravity names the plugin's MCP server `serro_serro` (`<plugin>_<server>`). The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`; the model sees the skills by their own names.
+
+The plugin runs the shared hook script from `hooks.json`:
+- `PostToolUse` records a successful join. The model calls MCP tools through Antigravity's `call_mcp_tool`, so the hook matches that and checks `toolCall.args.ToolName`. Antigravity sends no result, and writes it to the session transcript only after the hook returns. So the join waits in `pending-<session>` with the call's `stepIdx`, and the next `Stop` or `PreInvocation` hook checks the transcript step with that `step_index` and records it if it succeeded.
+- `PreInvocation` adds the reminder as a system message, at the first model call of each turn (`invocationNum` 0).
+- `Stop` asks for one continuation with the nudge. It skips continuations (`executionNum` above 0); `continuationActive` stayed false on the Stop that followed a continuation, so the script doesn't rely on it.
+
+State lives in `PLUGIN_DATA` (`~/.gemini/antigravity-cli/plugin_data/serro/`).
+
+Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in. SerroAI/serro-mcp#169 fixed that on staging; prod needs it promoted. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
+
+Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the package pointed at staging. Interactive: signing in from `/plugin` worked, and `/serro:serro-program Serro Security Maintenance` picked and joined the program. Headless (`agy -p`): the join was recorded at the turn's `Stop`, the nudge ran one continuation, the next turn's first model call carried the reminder, and no second nudge fired. In print mode Antigravity can't ask for MCP permission, so the test passed `--settings '{"permissions":{"allow":["mcp(serro_serro/*)","mcp(serro_serro)"]}}'`, which applies to that run only.
+
 ## Picking the program
 
 A repo can belong to many Serro programs (monorepos especially), so nothing is stored per repo. Each session picks its program when collaboration comes up: the agent matches programs against the task, the branch and any ticket keys, and asks when more than one fits. `/serro:program` does the same on request. The hooks read the program from the agent's own `program_join` call.
@@ -120,13 +140,15 @@ claude plugin validate . --strict
 
 Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
 
+Antigravity: `agy plugin install ./clients/antigravity` installs a copy, so reinstall after changing the package. `agy plugin validate clients/antigravity --strict` checks it.
+
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
 pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin closed (`< /dev/null`), or pi waits for it.
 
 Hermes: copy `clients/hermes` to `~/.hermes/plugins/serro`, then run `hermes plugins enable serro`. After changing the copy, run `hermes plugins disable serro` and enable it again: `hermes chat` runs in the Hermes gateway, which keeps the loaded code until then. `hermes plugins validate clients/hermes` runs the catalog's checks.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse` and pi's `tool_result` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse`, pi's `tool_result` and Antigravity's `PostToolUse` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
 
 ## Layout
 
@@ -168,6 +190,13 @@ clients/hermes/                   Hermes plugin
   plugin.yaml
   __init__.py                     skills; post_tool_call records joins; prompt reminder; pre_verify nudges once; post_compaction keeps joins
   skills/{agent-exchange,program,sync,handoff}/SKILL.md
+clients/antigravity/              Antigravity plugin
+  plugin.json
+  assets/icon.png
+  mcp_config.json
+  hooks.json                      PostToolUse records joins; PreInvocation reminder; Stop nudges once
+  scripts/serro-hook              same script as the other clients
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 tests/serro-hook-joined.sh
 tests/hermes-plugin.py
 ```

@@ -1,0 +1,151 @@
+#!/bin/sh
+# Serro agent plugin hook. Prints context for the agent and never calls Serro:
+# the agent does the work over its own authenticated MCP connection.
+#
+# Usage: serro-hook joined|prompt|stop [claude|cursor|codex|pi|antigravity]   (hook input JSON on stdin)
+#
+#   joined  after an MCP tool call: records a successful program_join
+#   prompt  before each prompt: reminds the agent to check for changes
+#   stop    when the agent stops: nudges it once to write or hand off
+#
+# Silent until the agent has joined a Serro program in this session. The
+# program comes from the agent's own program_join call, never from the repo:
+# one repo can belong to many programs.
+
+event="$1"
+client="${2:-claude}"
+input=$(tr '\n' ' ')
+
+# Value of a flat string field in the hook input.
+field() {
+	printf '%s' "$input" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+}
+
+session=$(field session_id)
+[ -n "$session" ] || session=$(field conversation_id)
+[ -n "$session" ] || session=$(field conversationId)
+session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_-' '-')
+[ -n "$session" ] || exit 0
+
+state=${CLAUDE_PLUGIN_DATA:-${PLUGIN_DATA:-${TMPDIR:-/tmp}/serro-agent-plugin}}
+mkdir -p "$state" 2>/dev/null
+joins="$state/joined-$session"
+pending="$state/pending-$session"
+
+# Only a successful join counts: the result must return an "agent_id" key
+# with a UUID value. Serro reports failures as {"error": ..., "message": ...},
+# sometimes without isError, and tool_input text could mention agent_id too.
+succeeded() {
+	printf '%s' "$1" |
+		grep -q '\\*"agent_id\\*"[[:space:]]*:[[:space:]]*\\*"[0-9A-Fa-f]\{8\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{4\}-[0-9A-Fa-f]\{12\}\\*"' &&
+		! printf '%s' "$1" | grep -q '\\*"error\\*"[[:space:]]*:' &&
+		! printf '%s' "$1" | grep -q '\\*"isError\\*"[[:space:]]*:[[:space:]]*true'
+}
+
+if [ "$event" = joined ]; then
+	# tool_input may be an object or a JSON string, so allow escaped quotes.
+	# Antigravity calls MCP tools through call_mcp_tool, naming the tool in
+	# toolCall.args.ToolName.
+	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' ||
+		{ [ "$client" = antigravity ] &&
+			printf '%s' "$input" | grep -Eq '"(name|ToolName)"[[:space:]]*:[[:space:]]*"[^"]*program_join"'; } || exit 0
+	# The program is the program_id key of the call's own arguments (after
+	# tool_input, or toolCall in Antigravity). Text that merely mentions one,
+	# in the user's message or in another argument such as working_on, sits
+	# inside a JSON string, so its quotes carry one more level of escaping than
+	# the key's: Cursor's arguments are a JSON string themselves (\"program_id\"),
+	# the other clients' an object ("program_id").
+	case "$client" in
+	cursor) key='[^\\]\\"program_id\\"[[:space:]]*:[[:space:]]*\\"[0-9A-Fa-f-]{36}\\"' ;;
+	*) key='[^\\]"program_id"[[:space:]]*:[[:space:]]*"[0-9A-Fa-f-]{36}"' ;;
+	esac
+	id=$(printf '%s' "$input" | sed -nE 's/.*"(tool_input|toolCall)"[[:space:]]*:(.*)/\2/p' |
+		grep -oE "$key" | head -n 1 | grep -oE '[0-9A-Fa-f-]{36}')
+	[ -n "$id" ] || exit 0
+	# Antigravity sends no result, and writes it to the transcript only after
+	# this hook: the join waits in pending-<session> with the call's stepIdx
+	# until a later hook finds that step (below). A non-empty "error" means
+	# the call itself failed.
+	if [ "$client" = antigravity ]; then
+		[ -z "$(field error)" ] || exit 0
+		step=$(printf '%s' "$input" | sed -n 's/.*"stepIdx"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+		[ -n "$step" ] && echo "$id $step" >>"$pending"
+		exit 0
+	fi
+	# Cursor sends the result as the JSON string result_json (quotes escaped);
+	# Codex sends tool_response, an object that comes after tool_input.
+	result=$(printf '%s' "$input" |
+		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_response"[[:space:]]*:\(.*\)/\1/p')
+	succeeded "$result" && echo "$id" >>"$joins"
+	exit 0
+fi
+
+# Antigravity joins waiting for their result: settle each one whose step the
+# transcript now has, and keep the rest waiting.
+if [ -s "$pending" ]; then
+	transcript=$(field transcriptPath)
+	while read -r id step; do
+		result=$(grep "^{\"step_index\":$step," "$transcript" 2>/dev/null | tail -n 1)
+		if [ -z "$result" ]; then
+			echo "$id $step"
+		elif succeeded "$result"; then
+			echo "$id" >>"$joins"
+		fi
+	done <"$pending" >"$pending.new"
+	mv "$pending.new" "$pending"
+fi
+
+# Programs joined in this session: recorded joins, plus, in Claude Code,
+# program_join calls in the transcript ("name":"mcp__<server>__program_join").
+# Tool listings name every tool, so only the call counts.
+transcript=
+[ "$client" = claude ] && transcript=$(field transcript_path)
+programs=$(
+	{
+		[ -f "$joins" ] && cat "$joins"
+		[ -n "$transcript" ] && [ -f "$transcript" ] &&
+			grep -E '"name"[[:space:]]*:[[:space:]]*"mcp__[^"]*__program_join"' "$transcript" |
+			sed -n 's/.*"program_id"[[:space:]]*:[[:space:]]*"\([0-9A-Fa-f-]*\)".*/\1/p'
+	} | sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g'
+)
+[ -n "$programs" ] || exit 0
+
+case "$client" in
+claude) handoff=serro:handoff ;;
+*) handoff=serro-handoff ;;
+esac
+
+case "$event" in
+prompt)
+	reminder="Serro Agent Exchange: you joined program $programs in this session. Check program_fs_changes before relying on shared workspace state."
+	case "$client" in
+	antigravity)
+		# PreInvocation runs before every model call; remind once, at the turn's first.
+		printf '%s' "$input" | grep -q '"invocationNum"[[:space:]]*:[[:space:]]*0[^0-9]' || exit 0
+		printf '{"injectSteps":[{"systemMessage":{"systemMessage":"%s"}}]}\n' "$reminder"
+		;;
+	*) echo "$reminder" ;;
+	esac
+	;;
+stop)
+	# Never while already continuing from a nudge, and only after a normal finish.
+	printf '%s' "$input" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true' && exit 0
+	printf '%s' "$input" | grep -q '"loop_count"[[:space:]]*:[[:space:]]*[1-9]' && exit 0
+	printf '%s' "$input" | grep -q '"executionNum"[[:space:]]*:[[:space:]]*[1-9]' && exit 0
+	status=$(field status)
+	[ -z "$status" ] || [ "$status" = completed ] || exit 0
+	reason=$(field terminationReason)
+	[ -z "$reason" ] || [ "$reason" = NO_TOOL_CALL ] || exit 0
+	marker="$state/nudged-$session"
+	[ -e "$marker" ] && exit 0
+	: >"$marker" 2>/dev/null
+	nudge="Serro: before stopping, if this session produced something other agents on Serro program $programs need (a plan, a decision, a gotcha) or left work unfinished, write it to the Agent Exchange workspace now (for unfinished work, use the $handoff skill). If not, stop without writing anything."
+	case "$client" in
+	cursor) printf '{"followup_message":"%s"}\n' "$nudge" ;;
+	antigravity) printf '{"decision":"continue","reason":"%s"}\n' "$nudge" ;;
+	*) printf '{"decision":"block","reason":"%s"}\n' "$nudge" ;;
+	esac
+	;;
+esac
+exit 0

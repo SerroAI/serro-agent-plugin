@@ -43,7 +43,9 @@ function runHook(event: "joined" | "prompt" | "stop", input: object): Promise<st
 // A skill's SKILL.md: the top-level `key: value` lines of its frontmatter, and its body.
 function readSkill(name: string) {
 	const path = join(root, "skills", name, "SKILL.md");
-	const [, front = "", body = ""] = readFileSync(path, "utf8").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/) ?? [];
+	const [, front = "", body = ""] = readFileSync(path, "utf8")
+		.replace(/\r\n/g, "\n")
+		.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/) ?? [];
 	const fields = Object.fromEntries(
 		front.split("\n").flatMap((line) => {
 			const match = line.match(/^([\w-]+):\s*(.*)$/);
@@ -134,8 +136,9 @@ export default Plugin.define({
 		const continuing = new Set<string>();
 		await ctx.session.hook("experimental.idle", async (event) => {
 			const wasContinuing = continuing.delete(event.sessionID);
-			// Background work wakes the session again when it finishes.
-			if (event.background.length) return;
+			// This session's own background work wakes it again when it finishes; work a
+			// subagent owns wakes the subagent instead, so it doesn't count here.
+			if (event.background.some((work) => work.sessionID === event.sessionID)) return;
 			const out = await runHook("stop", { session_id: event.sessionID, stop_hook_active: wasContinuing });
 			let reason: unknown;
 			try {

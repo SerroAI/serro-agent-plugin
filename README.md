@@ -24,8 +24,9 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Claude Code | Working; tested headless against staging | `clients/claude-code` |
 | Cursor | Working; tested in the Cursor app against staging | `clients/cursor` |
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
-| Kiro, Cline, VS Code Copilot | Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins` |
-| pi | Working; tested headless (pi 1.5.2) against staging | `clients/pi` |
+| Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
+| Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
+| pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Antigravity, opencode, Hermes | Not started | |
 
 ## Install (Claude Code)
@@ -59,7 +60,15 @@ Tested in the Codex CLI (0.169) as a local marketplace: after a `program_join`, 
 
 Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because Codex skips hooks in Agent Plugins packages: a root `plugin.json` is read as that format, and its loader (`codex-rs/core-plugins/src/loader.rs`) drops hooks for it even when `extensions.com.openai.hooks` is set. `serro-program` and `serro-sync` are user-only there (`agents/openai.yaml`).
 
-`clients/agent-plugins` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
+`clients/agent-plugins/serro` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
+
+## Install (Kiro)
+
+In the **Powers** panel, choose **Add Custom Power**, then import `clients/agent-plugins/serro` from GitHub or from a local folder. Sign in to Serro when the MCP server asks. Kiro loads the power when a message mentions one of its `keywords` (`serro`, `agent exchange`), and adds the MCP server as `power-serro-serro`. The skills are also slash commands: `/serro-program`, `/serro-sync` and `/serro-handoff`.
+
+Kiro names an imported power, and its MCP server, after the power's folder, not the manifest's `name`. That is why the package sits in a folder called `serro`.
+
+Tested in the Kiro IDE (1.4.178) by importing a staging copy from a local folder: the remote OAuth MCP server connected, the keyword in "Use Serro Agent Exchange to join program …" loaded the power, the agent joined and left the program, and `/serro-program` picked and joined a program. Kiro reports its MCP client as `kiro` with version `0.0.0`. A power can't ship hooks, so Kiro gets no reminder or stop nudge.
 
 ## Install (pi)
 
@@ -71,7 +80,7 @@ pi install npm:@serroai/pi
 
 pi has no hook files, so `extensions/serro.ts` feeds pi's events to the shared hook script: `tool_result` records a successful `program_join`, `before_agent_start` adds the reminder as a `<serro>` system prompt section, and `agent_before_settle` adds the nudge and asks for one continuation. State lives in `~/.pi/agent/serro/`. pi hides MCP tools behind codemode by default, so the extension declares the `program_*` tools and `list_programs` directly and leaves the rest of Serro's tools to `tool_search`. A server named `serro` in your own `mcp.json` replaces the plugin's. `SERRO_MCP_URL` points the plugin at another Serro deployment, such as staging.
 
-Tested headless (`pi -p`, pi 1.5.2) with the extension loaded: a `program_join` made from a codemode script was recorded, the nudge started one more run in which the agent stopped without writing, the next prompt in the session carried the `<serro>` section, and no second nudge fired. pi lists the package in its gallery (pi.dev/packages) once it is on npm with the `pi-package` keyword.
+Tested in pi 1.5.2 against staging. Interactive (`pi -e ./clients/pi`): after signing in to `serro` from `/mcp`, `/skill:serro-program` called `list_programs` and `program_join` directly through the plugin's server, the nudge showed once as a `[serro]` message and the agent stopped without writing, the next prompt carried the `<serro>` section, and no second nudge fired. pi keeps MCP sign-ins per server name and URL, so a sign-in for another entry with the same URL doesn't carry over. Headless (`pi -p`): a `program_join` made from a codemode script on another server was recorded too. pi lists the package in its gallery (pi.dev/packages) once it is on npm with the `pi-package` keyword.
 
 ## Picking the program
 
@@ -127,7 +136,7 @@ clients/codex/                    Codex plugin
   hooks/hooks.json                PostToolUse records joins; prompt reminder; stop nudges once
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
-clients/agent-plugins/            Agent Plugins package: Kiro, Cline, VS Code Copilot
+clients/agent-plugins/serro/      Agent Plugins package: Kiro, Cline, VS Code Copilot (folder name = Kiro power name)
   plugin.json
   mcp.json
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md

@@ -11,9 +11,7 @@
   "repository": "https://github.com/SerroAI/serro-agent-plugin",
   "keywords": [
     "serro",
-    "agent-exchange",
-    "mcp",
-    "collaboration",
-    "multi-agent"
+    "agent exchange",
+    "agent-exchange"
   ]
 }

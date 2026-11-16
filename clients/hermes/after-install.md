@@ -6,4 +6,4 @@ hermes mcp add serro --url https://mcp.serro.ai/mcp --auth oauth
 
 Sign in again later with `hermes mcp login serro`. If you didn't enable the plugin during install, run `hermes plugins enable serro`.
 
-The commands are `/serro:program`, `/serro:sync` and `/serro:handoff`.
+The commands are `/serro:program`, `/serro:sync` and `/serro:handoff`, in the CLI, TUI and Desktop. Messaging platforms don't list them.

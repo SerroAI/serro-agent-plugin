@@ -78,13 +78,13 @@ hermes plugins install SerroAI/serro-agent-plugin#clients/hermes
 hermes plugins enable serro
 ```
 
-Sign in to Serro when Hermes asks, or later with `hermes mcp login serro`. The skills are `serro:agent-exchange`, `serro:program`, `serro:sync` and `serro:handoff`; the last three are also slash commands (`/serro:program` and so on).
+Sign in to Serro when Hermes asks, or later with `hermes mcp login serro`. The skills are `serro:agent-exchange`, `serro:program`, `serro:sync` and `serro:handoff`, and each is also a slash command (`/serro:program` and so on).
 
 Hermes gets a native plugin (`plugin.yaml` and `__init__.py`), not the Agent Plugins package. Hermes loads Agent Plugins packages, but it signs in to an MCP server only when its config says `auth: oauth`, which a package's `mcp.json` can't set, and packages can't run hooks. A native plugin can't ship an MCP server, so the Serro server is the user's own entry, added above.
 
 The plugin ports `serro-hook` to Hermes hooks in Python, with the same text: `post_tool_call` records a successful `program_join`, `pre_llm_call` adds the reminder to each prompt, and `pre_verify` adds the nudge. Hermes has no general stop hook: `pre_verify` fires only on turns where the agent edited files, so the nudge comes at the end of the first such turn after a join. Joins are kept in the plugin's Hermes state (`~/.hermes/plugin-data/`), so a resumed session keeps them.
 
-Tested headless (`hermes chat -q`, Hermes 0.23.1) against staging, through an existing `serro-staging` server entry: the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit) and remote MCP servers in a separate catalog (`optional-mcps/`).
+Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit) and remote MCP servers in a separate catalog (`optional-mcps/`).
 
 ## Picking the program
 

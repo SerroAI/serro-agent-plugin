@@ -4,7 +4,7 @@
 # Run from the repo root: sh tests/serro-hook-joined.sh
 
 hook=clients/cursor/scripts/serro-hook
-for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook; do
+for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook clients/pi/scripts/serro-hook; do
 	cmp -s "$hook" "$copy" || { echo "FAIL: $copy differs from $hook"; exit 1; }
 done
 
@@ -63,6 +63,14 @@ check "codex: Serro error JSON" skipped \
 	"$cstart,$cargs,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"error\\\": \\\"invalid_argument\\\", \\\"message\\\": \\\"missing agent_id: x\\\"}\"}]}}" codex
 check "codex: isError" skipped \
 	"$cstart,$cargs,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"program not found\"}],\"isError\":true}}" codex
+
+# pi's extension sends its tool_result event the same way, from JSON.stringify:
+# no spaces, isError always present, structuredContent dropped when undefined.
+pstart="{\"session_id\":\"c1\",\"tool_name\":\"mcp__serro__program_join\",\"tool_input\":{\"program_id\":\"$P\",\"role\":\"t\"}"
+check "pi: success in text content" recorded \
+	"$pstart,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"agent_id\\\": \\\"$A\\\"}\"}],\"isError\":false}}" pi
+check "pi: isError" skipped \
+	"$pstart,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"agent_id\\\": \\\"$A\\\"}\"}],\"isError\":true}}" pi
 
 # After a Codex join: one reminder per prompt, one nudge, then silence.
 rm -rf "$TMPDIR/serro-agent-plugin"

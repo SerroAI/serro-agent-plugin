@@ -1,0 +1,22 @@
+{
+  "name": "@serroai/pi",
+  "version": "0.1.0",
+  "description": "Serro for pi: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
+  "keywords": ["pi-package", "serro", "agent-exchange", "mcp", "multi-agent"],
+  "homepage": "https://serro.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SerroAI/serro-agent-plugin.git",
+    "directory": "clients/pi"
+  },
+  "author": "Serro (https://serro.ai)",
+  "type": "module",
+  "files": ["extensions", "scripts", "skills"],
+  "pi": {
+    "extensions": ["./extensions/serro.ts"],
+    "skills": ["./skills"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

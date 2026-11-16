@@ -26,7 +26,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
 | Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
-| Antigravity, opencode, pi, Hermes | Not started | |
+| Antigravity | Built; hooks tested in the Antigravity CLI (1.5.9). Sign-in waits on a serro-mcp fix (SerroAI/serro-mcp#169) | `clients/antigravity` |
+| opencode, pi, Hermes | Not started | |
 
 ## Install (Claude Code)
 
@@ -69,6 +70,25 @@ Kiro names an imported power, and its MCP server, after the power's folder, not 
 
 Tested in the Kiro IDE (1.4.178) by importing a staging copy from a local folder: the remote OAuth MCP server connected, the keyword in "Use Serro Agent Exchange to join program …" loaded the power, the agent joined and left the program, and `/serro-program` picked and joined a program. Kiro reports its MCP client as `kiro` with version `0.0.0`. A power can't ship hooks, so Kiro gets no reminder or stop nudge.
 
+## Install (Antigravity)
+
+```sh
+agy plugin install ./clients/antigravity
+```
+
+That installs from a checkout; `/plugin` in the CLI can also install from a local folder. Then open `/plugin`, expand **serro** under **Installed**, and sign in. Antigravity names the plugin's MCP server `serro_serro` (`<plugin>_<server>`). The skills keep their names and are slash commands: `/serro-program`, `/serro-sync` and `/serro-handoff`.
+
+The plugin runs the shared hook script from `hooks.json`:
+- `PostToolUse` on `program_join` records a successful join. Antigravity sends the call but not its result, so the script reads the result from the session transcript: the step whose `step_index` is the call's `stepIdx`.
+- `PreInvocation` adds the reminder as a system message, at the first model call of each turn (`invocationNum` 0).
+- `Stop` asks for one continuation with the nudge. It skips continuations (`executionNum` above 0); `continuationActive` stayed false on the Stop that followed a continuation, so the script doesn't rely on it.
+
+State lives in `PLUGIN_DATA` (`~/.gemini/antigravity-cli/plugin_data/serro/`).
+
+Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in; SerroAI/serro-mcp#169 fixes that. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
+
+Tested in the Antigravity CLI (1.5.9) with a probe plugin that recorded each hook's input: the payload fields above, a `Stop` continuation that ran once, and the transcript format.
+
 ## Picking the program
 
 A repo can belong to many Serro programs (monorepos especially), so nothing is stored per repo. Each session picks its program when collaboration comes up: the agent matches programs against the task, the branch and any ticket keys, and asks when more than one fits. `/serro:program` does the same on request. The hooks read the program from the agent's own `program_join` call.
@@ -89,6 +109,8 @@ claude plugin validate . --strict
 ```
 
 Cursor CLI: `agent --plugin-dir clients/cursor`. Cursor IDE: copy (not symlink) `clients/cursor` to `~/.cursor/plugins/local/serro` and reload the window.
+
+Antigravity: `agy plugin install ./clients/antigravity` installs a copy, so reinstall after changing the package. `agy plugin validate clients/antigravity --strict` checks it.
 
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
@@ -124,6 +146,13 @@ clients/codex/                    Codex plugin
 clients/agent-plugins/serro/      Agent Plugins package: Kiro, Cline, VS Code Copilot (folder name = Kiro power name)
   plugin.json
   mcp.json
+  skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+clients/antigravity/              Antigravity plugin
+  plugin.json
+  assets/icon.png
+  mcp_config.json
+  hooks.json                      PostToolUse records joins; PreInvocation reminder; Stop nudges once
+  scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 tests/serro-hook-joined.sh
 ```

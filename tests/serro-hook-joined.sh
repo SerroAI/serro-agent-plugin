@@ -1,10 +1,12 @@
 #!/bin/sh
-# Tests that serro-hook records a program_join only when it succeeded (Cursor
-# and Codex hook input), and how Codex sessions get the reminder and nudge.
+# Tests that serro-hook records a program_join only when it succeeded (Cursor,
+# Codex and Antigravity hook input), and how Codex and Antigravity sessions get
+# the reminder and nudge.
 # Run from the repo root: sh tests/serro-hook-joined.sh
 
 hook=clients/cursor/scripts/serro-hook
-for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook; do
+for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook \
+	clients/antigravity/scripts/serro-hook; do
 	cmp -s "$hook" "$copy" || { echo "FAIL: $copy differs from $hook"; exit 1; }
 done
 
@@ -80,5 +82,29 @@ silent "codex: second stop is silent" "$(printf '%s' "$stop" | sh "$hook" stop c
 rm -f "$TMPDIR/serro-agent-plugin/nudged-c1"
 silent "codex: no nudge while continuing" "$(printf '%s' '{"session_id":"c1","stop_hook_active":true}' | sh "$hook" stop codex)"
 silent "codex: other sessions stay silent" "$(printf '%s' '{"session_id":"c2","prompt":"hi"}' | sh "$hook" prompt codex)"
+
+# Antigravity sends toolCall and stepIdx but no result: the result is the
+# transcript step with that index, its content a JSON string.
+T="$TMPDIR/transcript.jsonl"
+astart="{\"conversationId\":\"c1\",\"transcriptPath\":\"$T\",\"hookEventName\":\"PostToolUse\",\"toolCall\":{\"args\":{\"program_id\":\"$P\",\"role\":\"t\",\"working_on\":\"fix agent_id handling\"},\"id\":\"call_1\",\"name\":\"serro_serro_program_join\"}"
+step() { printf '{"step_index":%s,"source":"MODEL","type":"GENERIC","status":"DONE","content":"%s"}\n' "$1" "$2"; }
+{ step 1 'hello'; step 2 "{\\\"agent_id\\\": \\\"$A\\\"}"; step 3 '{\"error\": \"invalid_argument\", \"message\": \"bad agent_id: x\"}'; } >"$T"
+check "antigravity: success in transcript" recorded "$astart,\"stepIdx\":2,\"error\":\"\"}" antigravity
+check "antigravity: Serro error JSON in transcript" skipped "$astart,\"stepIdx\":3,\"error\":\"\"}" antigravity
+check "antigravity: failed call" skipped "$astart,\"stepIdx\":2,\"error\":\"connection reset\"}" antigravity
+check "antigravity: step not in transcript" skipped "$astart,\"stepIdx\":9,\"error\":\"\"}" antigravity
+
+# After an Antigravity join: a reminder at each turn's first model call, one nudge.
+rm -rf "$TMPDIR/serro-agent-plugin"
+printf '%s' "$astart,\"stepIdx\":2,\"error\":\"\"}" | sh "$hook" joined antigravity
+pre() { printf '{"conversationId":"%s","hookEventName":"PreInvocation","invocationNum":%s,"initialNumSteps":1}' "$1" "$2"; }
+astop='{"conversationId":"c1","hookEventName":"Stop","executionNum":0,"terminationReason":"NO_TOOL_CALL","error":""}'
+expect "antigravity: reminder at the first model call" '^{"injectSteps":\[{"systemMessage":{"systemMessage":"Serro Agent Exchange: you joined program '"$P" "$(pre c1 0 | sh "$hook" prompt antigravity)"
+silent "antigravity: no reminder at later model calls" "$(pre c1 10 | sh "$hook" prompt antigravity)"
+silent "antigravity: no nudge after an error" "$(printf '%s' "$astop" | sed 's/NO_TOOL_CALL/ERROR/' | sh "$hook" stop antigravity)"
+silent "antigravity: no nudge while continuing" "$(printf '%s' "$astop" | sed 's/"executionNum":0/"executionNum":1/' | sh "$hook" stop antigravity)"
+expect "antigravity: stop nudge" '^{"decision":"continue","reason":"Serro: before stopping.*serro-handoff skill' "$(printf '%s' "$astop" | sh "$hook" stop antigravity)"
+silent "antigravity: second stop is silent" "$(printf '%s' "$astop" | sh "$hook" stop antigravity)"
+silent "antigravity: other sessions stay silent" "$(pre c2 0 | sh "$hook" prompt antigravity)"
 
 [ "$fails" -eq 0 ] || exit 1

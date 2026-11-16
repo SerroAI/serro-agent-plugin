@@ -6,9 +6,19 @@ Run from the repo root: python3 tests/hermes-plugin.py"""
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import types
+from pathlib import Path
+
+# Hermes' plugin storage, pointed at a temporary directory.
+data = Path(tempfile.mkdtemp())
+storage = types.ModuleType("plugins.plugin_storage")
+storage.plugin_data_dir = lambda name: data
+sys.modules["plugins"] = types.ModuleType("plugins")
+sys.modules["plugins.plugin_storage"] = storage
 
 # No __pycache__ in the plugin: the Hermes catalog refuses committed bytecode.
 sys.dont_write_bytecode = True
@@ -23,32 +33,22 @@ ARGS = {"program_id": P, "role": "t", "working_on": "fix agent_id handling"}
 fails = 0
 
 
-class State:
-    def __init__(self):
-        self.data = {}
-
-    def get(self, key, default=None):
-        return json.loads(json.dumps(self.data.get(key, default)))
-
-    def set(self, key, value):
-        self.data[key] = json.loads(json.dumps(value))
-
-
 class Ctx:
     def __init__(self):
-        self.state = State()
-        self.skills = []
+        self.skills = {}
         self.hooks = {}
 
-    def register_skill(self, name, path, *args, **kwargs):
+    def register_skill(self, name, path, description="", frontmatter=None):
         assert path.is_file(), path
-        self.skills.append(name)
+        self.skills[name] = (description, frontmatter)
 
     def register_hook(self, event, callback, **kwargs):
         self.hooks[event] = callback
 
 
 def fresh():
+    for f in data.iterdir():
+        f.unlink()
     ctx = Ctx()
     plugin.register(ctx)
     return ctx
@@ -67,10 +67,14 @@ def joined(name, want, result, tool=JOIN, args=ARGS, **kwargs):
     ctx = fresh()
     kwargs.setdefault("session_id", "s1")
     ctx.hooks["post_tool_call"](tool_name=tool, args=args, result=result, **kwargs)
-    check(name, "recorded" if ctx.state.data.get("sessions") else "skipped", want)
+    check(name, "recorded" if (data / "joined-s1").is_file() else "skipped", want)
 
 
-check("skills", fresh().skills, ["agent-exchange", "handoff", "program", "sync"])
+skills = fresh().skills
+check("skills", sorted(skills), ["agent-exchange", "handoff", "program", "sync"])
+description, meta = skills["program"]
+check("skill description", description.startswith("Pick the Serro program"), True)
+check("skill frontmatter", (meta["name"], meta["description"]), ("program", description))
 
 text = json.dumps({"agent_id": A, "protocol": "..."})
 joined("success as text", "recorded", text)
@@ -89,13 +93,22 @@ joined("no session", "skipped", text, session_id="")
 # After a join: a reminder on each prompt, one nudge, then silence.
 ctx = fresh()
 ctx.hooks["post_tool_call"](tool_name=JOIN, args=ARGS, result=text, session_id="s1")
-prompt, finish = ctx.hooks["pre_llm_call"], ctx.hooks["pre_verify"]
+prompt, finish, compaction = ctx.hooks["pre_llm_call"], ctx.hooks["pre_verify"], ctx.hooks["post_compaction"]
 reminder = (prompt(session_id="s1") or {}).get("context", "")
 check("other sessions stay silent", prompt(session_id="s2"), None)
 check("no nudge while continuing", finish(session_id="s1", attempt=1), None)
 nudge = (finish(session_id="s1", attempt=0) or {}).get("message", "")
 check("second finish is silent", finish(session_id="s1", attempt=0), None)
 check("reminder after the nudge", prompt(session_id="s1"), {"context": reminder})
+
+# Compaction that starts a new session id keeps the join and the sent nudge.
+compaction(session_id="s3", old_session_id="s1")
+check("reminder after compaction", prompt(session_id="s3"), {"context": reminder})
+check("no second nudge after compaction", finish(session_id="s3", attempt=0), None)
+ctx = fresh()
+ctx.hooks["post_tool_call"](tool_name=JOIN, args=ARGS, result=text, session_id="s1")
+ctx.hooks["post_compaction"](session_id="s3", old_session_id="s1")
+check("pending nudge survives compaction", bool(ctx.hooks["pre_verify"](session_id="s3", attempt=0)), True)
 
 # The same text as serro-hook in Claude Code, which also names the skill serro:handoff.
 with tempfile.TemporaryDirectory() as state:
@@ -112,4 +125,5 @@ with tempfile.TemporaryDirectory() as state:
     check("reminder matches serro-hook", reminder, hook("prompt"))
     check("nudge matches serro-hook", nudge, json.loads(hook("stop"))["reason"])
 
+shutil.rmtree(data)
 sys.exit(1 if fails else 0)

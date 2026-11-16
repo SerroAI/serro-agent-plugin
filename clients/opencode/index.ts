@@ -86,19 +86,20 @@ export default Plugin.define({
 		});
 
 		// opencode's skills aren't slash commands, so the ones a user runs are also
-		// commands: /serro-program, /serro-sync and /serro-handoff.
+		// commands: /serro-program, /serro-sync and /serro-handoff. Each sends the
+		// user's words with the skill attached, as an @skill mention would.
 		await ctx.command.transform((editor) => {
 			for (const skill of skills.filter((s) => s.name !== "agent-exchange")) {
 				editor.add({
 					name: skill.name,
 					description: skill.description,
 					execute: async ({ sessionID, prompt, delivery }) => {
-						const request = prompt.text.trim();
 						await ctx.session.prompt({
 							...prompt,
 							sessionID,
 							delivery,
-							text: request ? `${skill.body}\n\nThe user's request: ${request}` : skill.body,
+							text: prompt.text.trim() || skill.description,
+							skills: [...(prompt.skills ?? []), { id: Skill.ID.make(skill.name) }],
 						});
 					},
 				});

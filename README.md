@@ -29,7 +29,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
 | Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod. Sign-in needed SerroAI/serro-mcp#169 | `clients/antigravity` |
-| opencode | Working; tested headless in opencode (2.3.0) against staging | `clients/opencode` |
+| opencode | Working; tested in opencode (2.3.0), interactive and headless, against staging | `clients/opencode` |
 
 ## Install (Claude Code)
 
@@ -125,7 +125,7 @@ Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the packag
 opencode plugin add @serroai/opencode
 ```
 
-(Not on npm yet. Until then, list the package directory in `opencode.json`: `"plugins": ["file:///path/to/clients/opencode"]`.) Then sign in with `opencode mcp auth serro`, or from `/mcps` in the TUI. The commands are `/serro-program`, `/serro-sync` and `/serro-handoff`; opencode's skills aren't slash commands, so each command sends its skill to the session as a prompt. The model loads `agent-exchange` and `serro-handoff` on its own; `serro-program` and `serro-sync` are user-only (`autoinvoke` off).
+(Not on npm yet. Until then, list the package directory in `opencode.json`: `"plugins": ["file:///path/to/clients/opencode"]`.) Then sign in with `opencode mcp auth serro`, or from `/mcps` in the TUI. The commands are `/serro-program`, `/serro-sync` and `/serro-handoff`; opencode's skills aren't slash commands, so each command sends what you typed with its skill attached, as an `@skill` mention does. The model loads `agent-exchange` and `serro-handoff` on its own; `serro-program` and `serro-sync` are user-only (`autoinvoke` off).
 
 This is an opencode 2 server plugin (`@opencode/plugin`); opencode 1 plugins don't load in 2, and this one doesn't load in 1. `index.ts` adds the MCP server and skills through opencode's transforms and feeds opencode's events to the shared hook script:
 - `tool` `execute.after` records a successful `program_join`. opencode's code mode runs MCP calls inside its `execute` tool (`tools.serro.program_join(...)`), and those calls still reach tool hooks.
@@ -140,7 +140,7 @@ State lives in `~/.local/share/opencode/serro/`. A server named `serro` in your 
 
 `SERRO_MCP_URL` also works, but only in the environment of opencode's background service (`opencode serve --service`), which runs plugins for the TUI and the CLI alike. Setting it on an `opencode` command doesn't reach the plugin.
 
-Tested headless (`opencode run`, opencode 2.3.0, Claude Sonnet 5.5 on Amazon Bedrock) against staging: the join was recorded, the idle nudge ran one more step in which the agent stopped without writing, the next prompt in the session carried the reminder, and no second nudge fired. opencode has no plugin marketplace: plugins are npm packages, installed with `opencode plugin add`.
+Tested in opencode 2.3.0 (Claude Sonnet 5.5 on Amazon Bedrock) against staging. Interactive: `/serro-program Serro Security Maintenance` showed as the user's words with the `serro-program` skill attached, the agent joined, and the idle nudge brought one reply that it had nothing to write. Headless (`opencode run`, which sends slash commands as plain text): the join was recorded, the idle nudge ran one more step in which the agent stopped without writing, the next prompt in the session carried the reminder, and no second nudge fired. opencode reports its MCP client as `opencode` with its real version. opencode has no plugin marketplace: plugins are npm packages, installed with `opencode plugin add`.
 
 ## Picking the program
 

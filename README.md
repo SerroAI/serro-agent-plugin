@@ -27,7 +27,8 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
 | Cline, VS Code Copilot | Same Agent Plugins package (skills and MCP only; no hooks); not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
-| Antigravity, opencode, Hermes | Not started | |
+| Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
+| Antigravity, opencode | Not started | |
 
 ## Install (Claude Code)
 
@@ -82,6 +83,22 @@ pi has no hook files, so `extensions/serro.ts` feeds pi's events to the shared h
 
 Tested in pi 1.5.2 against staging. Interactive (`pi -e ./clients/pi`): after signing in to `serro` from `/mcp`, `/skill:serro-program` called `list_programs` and `program_join` directly through the plugin's server, the nudge showed once as a `[serro]` message and the agent stopped without writing, the next prompt carried the `<serro>` section, and no second nudge fired. pi keeps MCP sign-ins per server name and URL, so a sign-in for another entry with the same URL doesn't carry over. Headless (`pi -p`): a `program_join` made from a codemode script on another server was recorded too. pi lists the package in its gallery (pi.dev/packages) once it is on npm with the `pi-package` keyword.
 
+## Install (Hermes)
+
+```sh
+hermes mcp add serro --url https://mcp.serro.ai/mcp --auth oauth
+hermes plugins install SerroAI/serro-agent-plugin#clients/hermes
+hermes plugins enable serro
+```
+
+Sign in to Serro when Hermes asks, or later with `hermes mcp login serro`. The skills are `serro:agent-exchange`, `serro:program`, `serro:sync` and `serro:handoff`, and each is also a slash command (`/serro:program` and so on).
+
+Hermes gets a native plugin (`plugin.yaml` and `__init__.py`), not the Agent Plugins package. Hermes loads Agent Plugins packages, but it signs in to an MCP server only when its config says `auth: oauth`, which a package's `mcp.json` can't set, and packages can't run hooks. A native plugin can't ship an MCP server, so the Serro server is the user's own entry, added above.
+
+The plugin ports `serro-hook` to Hermes hooks in Python, with the same text: `post_tool_call` records a successful `program_join`, `pre_llm_call` adds the reminder to each prompt, `pre_verify` adds the nudge, and `post_compaction` keeps the record when compaction starts a new session id. Hermes has no general stop hook: `pre_verify` fires only on turns where the agent edited files, so the nudge comes at the end of the first such turn after a join. Joins are kept in `~/.hermes/plugin-data/serro/`, one file per session as `serro-hook` keeps them, so a resumed session keeps them.
+
+Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit) and remote MCP servers in a separate catalog (`optional-mcps/`).
+
 ## Picking the program
 
 A repo can belong to many Serro programs (monorepos especially), so nothing is stored per repo. Each session picks its program when collaboration comes up: the agent matches programs against the task, the branch and any ticket keys, and asks when more than one fits. `/serro:program` does the same on request. The hooks read the program from the agent's own `program_join` call.
@@ -107,7 +124,9 @@ Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin a
 
 pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin closed (`< /dev/null`), or pi waits for it.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse` and pi's `tool_result` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical.
+Hermes: copy `clients/hermes` to `~/.hermes/plugins/serro`, then run `hermes plugins enable serro`. After changing the copy, run `hermes plugins disable serro` and enable it again: `hermes chat` runs in the Hermes gateway, which keeps the loaded code until then. `hermes plugins validate clients/hermes` runs the catalog's checks.
+
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse` and pi's `tool_result` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
 
 ## Layout
 
@@ -145,7 +164,12 @@ clients/pi/                       pi package (npm @serroai/pi)
   extensions/serro.ts             MCP server; runs serro-hook on tool_result, before_agent_start, agent_before_settle
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+clients/hermes/                   Hermes plugin
+  plugin.yaml
+  __init__.py                     skills; post_tool_call records joins; prompt reminder; pre_verify nudges once; post_compaction keeps joins
+  skills/{agent-exchange,program,sync,handoff}/SKILL.md
 tests/serro-hook-joined.sh
+tests/hermes-plugin.py
 ```
 
 Next: extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.

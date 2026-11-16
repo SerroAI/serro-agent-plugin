@@ -146,7 +146,7 @@ clients/agent-plugins/serro/      Agent Plugins package: Kiro, Cline, VS Code Co
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 clients/hermes/                   Hermes plugin
   plugin.yaml
-  __init__.py                     skills; post_tool_call records joins; prompt reminder; pre_verify nudges once
+  __init__.py                     skills; post_tool_call records joins; prompt reminder; pre_verify nudges once; post_compaction keeps joins
   skills/{agent-exchange,program,sync,handoff}/SKILL.md
 tests/serro-hook-joined.sh
 tests/hermes-plugin.py

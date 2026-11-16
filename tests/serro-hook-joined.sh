@@ -16,6 +16,7 @@ unset CLAUDE_PLUGIN_DATA PLUGIN_DATA
 trap 'rm -rf "$TMPDIR"' EXIT
 P=2137fc71-a969-460d-a579-72153a9c0350
 A=527b90fb-b168-4aaf-ad07-f6c286612870
+O=0d5a0e3c-7b1f-4c2a-9e8d-1f2a3b4c5d6e
 fails=0
 
 # check <name> <want: recorded|skipped> <hook input JSON> [client]
@@ -41,6 +42,13 @@ check "error text mentioning agent_id:" skipped \
 	"$start,$args,\"result_json\":\"{\\\"error\\\":\\\"missing agent_id: invalid\\\"}\"}"
 check "Serro error JSON without isError" skipped \
 	"$start,$args,\"result_json\":\"{\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"error\\\\\\\": \\\\\\\"invalid_argument\\\\\\\", \\\\\\\"message\\\\\\\": \\\\\\\"bad agent_id: x\\\\\\\"}\\\"}]}\"}"
+# The program is the program_id key, not text in another argument.
+for note in "program_id: $O" "\\\\\\\"program_id\\\\\\\": \\\\\\\"$O\\\\\\\""; do
+	rm -rf "$TMPDIR/serro-agent-plugin"
+	printf '%s' "$start,\"tool_input\":\"{\\\"working_on\\\":\\\"$note\\\",\\\"program_id\\\":\\\"$P\\\"}\",\"result_json\":\"{\\\"agent_id\\\":\\\"$A\\\"}\"}" | sh "$hook" joined cursor
+	got=$(cat "$TMPDIR/serro-agent-plugin/joined-c1" 2>/dev/null)
+	if [ "$got" = "$P" ]; then echo "ok    program from its key, not working_on ($note)"; else echo "FAIL  working_on ($note): got '$got'"; fails=$((fails + 1)); fi
+done
 check "agent_id not a UUID" skipped \
 	"$start,$args,\"result_json\":\"{\\\"agent_id\\\":\\\"deadbeef-not-a-uuid\\\"}\"}"
 check "agent_id UUID with extra characters" skipped \
@@ -119,7 +127,6 @@ pre c1 5 | sh "$hook" prompt antigravity >/dev/null
 if [ -s "$TMPDIR/serro-agent-plugin/joined-c1" ]; then echo "ok    antigravity: join recorded once its result is written"; else echo "FAIL  antigravity: join recorded once its result is written"; fails=$((fails + 1)); fi
 
 # The program comes from the call's arguments, not from the user's message.
-O=0d5a0e3c-7b1f-4c2a-9e8d-1f2a3b4c5d6e
 for where in before after; do
 	rm -rf "$TMPDIR/serro-agent-plugin"
 	msg="\"lastUserInput\":\"join program_id: $O, and \\\"toolCall\\\": {\\\"program_id\\\": \\\"$O\\\"}\""
@@ -128,6 +135,16 @@ for where in before after; do
 	pre c1 5 | sh "$hook" prompt antigravity >/dev/null
 	got=$(cat "$TMPDIR/serro-agent-plugin/joined-c1" 2>/dev/null)
 	if [ "$got" = "$P" ]; then echo "ok    antigravity: program from the arguments, user message $where"; else echo "FAIL  antigravity: user message $where: got '$got'"; fails=$((fails + 1)); fi
+done
+
+# Nor from another argument that mentions one, quoted or not, before the key.
+ajoin() { printf '{"conversationId":"c1","transcriptPath":"%s","toolCall":{"args":{"Arguments":{"working_on":"%s","program_id":"%s","role":"t"},"ServerName":"serro_serro","ToolName":"program_join"},"id":"call_1","name":"call_mcp_tool"},"stepIdx":2,"error":""}' "$T" "$1" "$P"; }
+for note in "program_id: $O" '\"program_id\": \"'"$O"'\"'; do
+	rm -rf "$TMPDIR/serro-agent-plugin"
+	ajoin "$note" | sh "$hook" joined antigravity
+	pre c1 5 | sh "$hook" prompt antigravity >/dev/null
+	got=$(cat "$TMPDIR/serro-agent-plugin/joined-c1" 2>/dev/null)
+	if [ "$got" = "$P" ]; then echo "ok    antigravity: program from its key, not working_on ($note)"; else echo "FAIL  antigravity: working_on ($note): got '$got'"; fails=$((fails + 1)); fi
 done
 
 # After an Antigravity join: a reminder at each turn's first model call, one nudge.

@@ -49,13 +49,18 @@ if [ "$event" = joined ]; then
 	printf '%s' "$input" | grep -q '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*program_join"' ||
 		{ [ "$client" = antigravity ] &&
 			printf '%s' "$input" | grep -Eq '"(name|ToolName)"[[:space:]]*:[[:space:]]*"[^"]*program_join"'; } || exit 0
-	# The program is the first program_id in the call's own arguments (after
-	# tool_input, or toolCall in Antigravity), so other text in the input, such
-	# as the user's last message, can't supply one. A quoted copy of those keys
-	# inside a string has escaped quotes and doesn't match.
+	# The program is the program_id key of the call's own arguments (after
+	# tool_input, or toolCall in Antigravity). Text that merely mentions one,
+	# in the user's message or in another argument such as working_on, sits
+	# inside a JSON string, so its quotes carry one more level of escaping than
+	# the key's: Cursor's arguments are a JSON string themselves (\"program_id\"),
+	# the other clients' an object ("program_id").
+	case "$client" in
+	cursor) key='[^\\]\\"program_id\\"[[:space:]]*:[[:space:]]*\\"[0-9A-Fa-f-]{36}\\"' ;;
+	*) key='[^\\]"program_id"[[:space:]]*:[[:space:]]*"[0-9A-Fa-f-]{36}"' ;;
+	esac
 	id=$(printf '%s' "$input" | sed -nE 's/.*"(tool_input|toolCall)"[[:space:]]*:(.*)/\2/p' |
-		grep -oE 'program_id[\\"]*[[:space:]]*:[[:space:]]*[\\"]*[0-9A-Fa-f-]{36}' | head -n 1 |
-		grep -oE '[0-9A-Fa-f-]{36}$')
+		grep -oE "$key" | head -n 1 | grep -oE '[0-9A-Fa-f-]{36}')
 	[ -n "$id" ] || exit 0
 	# Antigravity sends no result, and writes it to the transcript only after
 	# this hook: the join waits in pending-<session> with the call's stepIdx

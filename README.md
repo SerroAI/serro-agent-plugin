@@ -26,7 +26,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | Codex | Working; tested in the Codex CLI (0.169) against staging | `clients/codex` |
 | Kiro | Working; tested in the Kiro IDE (1.4.178) against staging. Skills and MCP only: powers can't ship hooks | `clients/agent-plugins/serro` |
 | Cline | Working in the VS Code extension (4.1.26) against staging: skills from the Agent Plugins package, and the MCP server added by the user. No plugin slash commands or hooks | `clients/agent-plugins/serro` |
-| VS Code Copilot | Same Agent Plugins package; not yet tested | `clients/agent-plugins/serro` |
+| VS Code Copilot | Working; tested in VS Code (1.146) with Copilot Fusion against staging. VS Code's own agent: not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
 | Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod. Sign-in needed SerroAI/serro-mcp#169 | `clients/antigravity` |
@@ -63,7 +63,7 @@ Tested in the Codex CLI (0.169) as a local marketplace: after a `program_join`, 
 
 Codex gets its own package with a `.codex-plugin/plugin.json` manifest, because Codex skips hooks in Agent Plugins packages: a root `plugin.json` is read as that format, and its loader (`codex-rs/core-plugins/src/loader.rs`) drops hooks for it even when `extensions.com.openai.hooks` is set. `serro-program` and `serro-sync` are user-only there (`agents/openai.yaml`).
 
-`clients/agent-plugins/serro` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, no hooks. The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
+`clients/agent-plugins/serro` is the portable [Agent Plugins](https://agent-plugins.org) 1.0.0 package for Kiro, Cline and VS Code Copilot: root `plugin.json`, `mcp.json` and `skills/`, plus hooks that only VS Code Copilot runs (`com.github.copilot/hooks/hooks.json` and `scripts/serro-hook`). The skills use only the portable frontmatter (`name`, `description`), so `serro-program` and `serro-sync` say "use only when the user asks".
 
 ## Install (Kiro)
 
@@ -96,6 +96,21 @@ What a package can and can't do in Cline:
 Cline keeps the sign-in (the client registration and tokens) inside `cline_mcp_settings.json`, so don't commit or share that file, and anything that writes it must merge rather than overwrite. After a network drop, Cline can stop reconnecting the server and leave it with no tools; reloading the window brings it back.
 
 Tested in Cline 4.1.26 (VS Code) against staging: the four skills appeared under **Global** in **Customize** > **Skills**, and with the settings entry signed in, "Use the serro-program skill to join …" loaded `serro:serro-program` and joined the program. Cline reports its MCP client as `Cline` with its version. A one-click install of the server would come from Cline's marketplace (`cline/marketplace`, one PR per entry under `registry/mcps/`), which writes the settings file.
+
+## Install (VS Code Copilot)
+
+Run **Chat: Add Plugin Marketplace** and enter `SerroAI/serro-agent-plugin`. Then search the Extensions view for `@agentPlugins serro` and install it. Sign in with the **Authenticate** action on the `serro` MCP server. The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`.
+
+VS Code reads a repo's marketplace from the first of `marketplace.json`, `.plugin/marketplace.json`, `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json` that exists. `.github/plugin/marketplace.json` points it at the Agent Plugins package; without it, VS Code would install the Claude Code package. VS Code's default marketplace is `github/awesome-copilot` (its `marketplace` branch), so an official listing would go there.
+
+VS Code runs an Agent Plugins package's hooks from `com.github.copilot/hooks/hooks.json`, in both of its agents: VS Code's own agent and Copilot Fusion, which runs the Copilot CLI's agent. The two read hook input and output differently, so the script handles both:
+- `PostToolUse` records a successful join. The result comes as `tool_result` in Copilot Fusion and as `tool_response` in VS Code's agent.
+- `UserPromptSubmit` adds the reminder. Copilot Fusion reads `additionalContext` at the top level, VS Code's agent reads it under `hookSpecificOutput`, so the script prints both.
+- `Stop` asks for one continuation, with `decision` and `reason` printed the same two ways. Copilot Fusion sends the nudge as a hidden user message: the chat shows the agent's reply, not the nudge.
+
+The hooks need `sh`, so on Windows they do nothing (`windows` and `powershell` are `exit 0`). State lives in `PLUGIN_DATA`: `~/.copilot/plugin-data/serro/serro/` for a marketplace install (in `~/.copilot/installed-plugins/serro/serro/`), and `~/.copilot/plugin-data/_direct/<hash>/` for a copy VS Code hands to Copilot Fusion, a new folder each time VS Code copies the plugin. With a marketplace install, Copilot Fusion runs both: its own install and VS Code's copy of it. The hooks run twice, each copy with its own state, and the agent still gets one reminder and one nudge.
+
+Tested in VS Code 1.146 (Copilot 0.74) against staging, with Copilot Fusion and the model it picked (MAI-Code-1.1-Flash), loading a staging copy through `chat.pluginLocations`: the plugin's MCP server showed **Authenticate**, `/serro:serro-program Serro Security Maintenance` joined the program and the join was recorded, the nudge ran one continuation in which the agent checked `program_fs_log` and stopped without writing, the next prompt carried the reminder (the agent quoted it), the agent left the program, and no second nudge fired. The same test passed after installing from a marketplace: a clone of this branch, pointed at staging and served locally, which Copilot installed from `.github/plugin/marketplace.json` rather than the Claude Code manifest. Copilot Fusion reports its MCP client as `copilot-cli` (1.0.108-0). In other runs the same model joined the wrong program (it copied the first `program_id` from `list_programs`) and once didn't call the Serro tools it had found.
 
 ## Install (pi)
 
@@ -194,11 +209,13 @@ Antigravity: `agy plugin install ./clients/antigravity` installs a copy, so rein
 
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
+VS Code: add the package folder to `chat.pluginLocations` (`{"/path/to/clients/agent-plugins/serro": true}`) and reload the window. VS Code runs a copy in `~/Library/Application Support/Code/agentPlugins/` and copies the folder again on reload only if its top-level files changed, so after editing the script, `touch` the folder and `plugin.json`. **Add Plugin Marketplace** rejects a local path, and a `file://` URL reaches Copilot Fusion's engine as a path inside the workspace folder. To test a marketplace before it's on GitHub, serve a clone with `git http-backend` and add `http://127.0.0.1:<port>/<repo>.git`; Copilot clones with `--depth 1`, which a plain file server can't serve.
+
 pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin closed (`< /dev/null`), or pi waits for it.
 
 Hermes: copy `clients/hermes` to `~/.hermes/plugins/serro`, then run `hermes plugins enable serro`. After changing the copy, run `hermes plugins disable serro` and enable it again: `hermes chat` runs in the Hermes gateway, which keeps the loaded code until then. `hermes plugins validate clients/hermes` runs the catalog's checks.
 
-The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse`, pi's `tool_result`, Antigravity's `PostToolUse` and opencode's `execute.after` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
+The hook script is POSIX `sh` with no dependencies, so it runs on any machine with a shell. Every client except Hermes shares it: Cursor's `afterMCPExecution`, Codex's `PostToolUse`, pi's `tool_result`, Antigravity's `PostToolUse`, opencode's `execute.after` and VS Code Copilot's `PostToolUse` record each successful `program_join`; in Claude Code the script finds the call in the session transcript. Test it with `sh tests/serro-hook-joined.sh`, which also checks that the copies are identical. Hermes runs a Python port; `python3 tests/hermes-plugin.py` tests it and checks that its text matches the script's.
 
 ## Layout
 
@@ -227,9 +244,12 @@ clients/codex/                    Codex plugin
   hooks/hooks.json                PostToolUse records joins; prompt reminder; stop nudges once
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+.github/plugin/marketplace.json   VS Code Copilot marketplace (this repo)
 clients/agent-plugins/serro/      Agent Plugins package: Kiro, Cline, VS Code Copilot (folder name = Kiro power name)
   plugin.json
   mcp.json
+  com.github.copilot/hooks/hooks.json   VS Code Copilot only: PostToolUse records joins; prompt reminder; stop nudges once
+  scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
 clients/pi/                       pi package (npm @serroai/pi)
   package.json                    "pi" key: extension and skills; pi-package keyword for the gallery

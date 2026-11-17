@@ -7,7 +7,7 @@
 hook=clients/cursor/scripts/serro-hook
 for copy in clients/claude-code/scripts/serro-hook clients/codex/scripts/serro-hook \
 	clients/pi/scripts/serro-hook clients/antigravity/scripts/serro-hook \
-	clients/opencode/scripts/serro-hook; do
+	clients/opencode/scripts/serro-hook clients/agent-plugins/serro/scripts/serro-hook; do
 	cmp -s "$hook" "$copy" || { echo "FAIL: $copy differs from $hook"; exit 1; }
 done
 
@@ -159,5 +159,19 @@ silent "antigravity: second stop is silent" "$(printf '%s' "$astop" | sh "$hook"
 expect "antigravity: reminder at the first model call" '^{"injectSteps":\[{"systemMessage":{"systemMessage":"Serro Agent Exchange: you joined program '"$P" "$(pre c1 0 | sh "$hook" prompt antigravity)"
 silent "antigravity: no reminder at later model calls" "$(pre c1 10 | sh "$hook" prompt antigravity)"
 silent "antigravity: other sessions stay silent" "$(pre c2 0 | sh "$hook" prompt antigravity)"
+
+# VS Code Copilot: Claude Code's field names, with the result as tool_response
+# (VS Code's agent) or tool_result (Copilot's CLI agent), and JSON-only output.
+gstart="{\"hook_event_name\":\"PostToolUse\",\"session_id\":\"c1\",\"tool_use_id\":\"call_1\",\"tool_name\":\"serro-program_join\",\"tool_input\":{\"program_id\":\"$P\",\"role\":\"implementer\",\"working_on\":\"fix agent_id handling\"}"
+check "copilot: success in tool_result" recorded "$gstart,\"tool_result\":{\"result_type\":\"success\",\"text_result_for_llm\":\"{\\\"agent_id\\\":\\\"$A\\\",\\\"protocol\\\":\\\"...\\\"}\"}}" copilot
+check "copilot: success in tool_response" recorded "$gstart,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"agent_id\\\": \\\"$A\\\"}\"}]}}" copilot
+check "copilot: Serro error JSON" skipped "$gstart,\"tool_result\":{\"result_type\":\"failure\",\"text_result_for_llm\":\"{\\\"error\\\":\\\"conflict\\\",\\\"agent_id\\\":\\\"$A\\\",\\\"message\\\":\\\"already joined\\\"}\"}}" copilot
+rm -rf "$TMPDIR/serro-agent-plugin"
+printf '%s' "$gstart,\"tool_result\":{\"result_type\":\"success\",\"text_result_for_llm\":\"{\\\"agent_id\\\":\\\"$A\\\"}\"}}" | sh "$hook" joined copilot
+gstop='{"hook_event_name":"Stop","session_id":"c1","stop_reason":"end_turn","stop_hook_active":false}'
+expect "copilot: reminder as additionalContext" '^{"additionalContext":"Serro Agent Exchange: you joined program '"$P"'.*"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Serro Agent Exchange: you joined program '"$P" "$(printf '%s' '{"hook_event_name":"UserPromptSubmit","session_id":"c1","prompt":"hi"}' | sh "$hook" prompt copilot)"
+silent "copilot: no nudge while continuing" "$(printf '%s' "$gstop" | sed 's/"stop_hook_active":false/"stop_hook_active":true/' | sh "$hook" stop copilot)"
+expect "copilot: stop nudge, top level and in hookSpecificOutput" '^{"decision":"block","reason":"Serro: before stopping.*serro-handoff skill.*"hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"Serro: before stopping.*serro-handoff skill' "$(printf '%s' "$gstop" | sh "$hook" stop copilot)"
+silent "copilot: second stop is silent" "$(printf '%s' "$gstop" | sh "$hook" stop copilot)"
 
 [ "$fails" -eq 0 ] || exit 1

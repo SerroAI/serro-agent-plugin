@@ -1,0 +1,15 @@
+{
+  "name": "serro",
+  "owner": {
+    "name": "Serro",
+    "url": "https://serro.ai"
+  },
+  "description": "Serro's plugins for coding agents.",
+  "plugins": [
+    {
+      "name": "serro",
+      "source": "./clients/agent-plugins/serro",
+      "description": "Serro MCP server plus Agent Exchange: shared plans, decisions, gotchas and handoffs between agents on a Serro program."
+    }
+  ]
+}

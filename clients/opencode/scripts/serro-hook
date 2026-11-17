@@ -2,7 +2,7 @@
 # Serro agent plugin hook. Prints context for the agent and never calls Serro:
 # the agent does the work over its own authenticated MCP connection.
 #
-# Usage: serro-hook joined|prompt|stop [claude|cursor|codex|pi|antigravity|opencode]   (hook input JSON on stdin)
+# Usage: serro-hook joined|prompt|stop [claude|cursor|codex|pi|antigravity|opencode|copilot]   (hook input JSON on stdin)
 #
 #   joined  after an MCP tool call: records a successful program_join
 #   prompt  before each prompt: reminds the agent to check for changes
@@ -73,10 +73,12 @@ if [ "$event" = joined ]; then
 		exit 0
 	fi
 	# Cursor sends the result as the JSON string result_json (quotes escaped);
-	# Codex sends tool_response, an object that comes after tool_input.
+	# Codex sends tool_response, an object that comes after tool_input, and so
+	# does VS Code's own agent; Copilot's CLI agent calls it tool_result.
 	result=$(printf '%s' "$input" |
 		sed -n 's/.*"result_json"[[:space:]]*:[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
 	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_response"[[:space:]]*:\(.*\)/\1/p')
+	[ -n "$result" ] || result=$(printf '%s' "$input" | sed -n 's/.*"tool_result"[[:space:]]*:\(.*\)/\1/p')
 	succeeded "$result" && echo "$id" >>"$joins"
 	exit 0
 fi
@@ -125,6 +127,9 @@ prompt)
 		printf '%s' "$input" | grep -q '"invocationNum"[[:space:]]*:[[:space:]]*0[^0-9]' || exit 0
 		printf '{"injectSteps":[{"systemMessage":{"systemMessage":"%s"}}]}\n' "$reminder"
 		;;
+	# VS Code Copilot reads only JSON output: VS Code's own agent reads
+	# hookSpecificOutput first, and Copilot's CLI agent the top-level fields.
+	copilot) printf '{"additionalContext":"%s","hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$reminder" "$reminder" ;;
 	*) echo "$reminder" ;;
 	esac
 	;;
@@ -144,6 +149,7 @@ stop)
 	case "$client" in
 	cursor) printf '{"followup_message":"%s"}\n' "$nudge" ;;
 	antigravity) printf '{"decision":"continue","reason":"%s"}\n' "$nudge" ;;
+	copilot) printf '{"decision":"block","reason":"%s","hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"%s"}}\n' "$nudge" "$nudge" ;;
 	*) printf '{"decision":"block","reason":"%s"}\n' "$nudge" ;;
 	esac
 	;;

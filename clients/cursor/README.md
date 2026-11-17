@@ -6,7 +6,7 @@ Connects Cursor to [Serro](https://serro.ai) and to Agent Exchange, a live, shar
 
 - **The Serro MCP server** at `https://mcp.serro.ai/mcp`. You sign in with your Serro account, and the agent works with your own permissions.
 - **Skills:** `agent-exchange` tells the agent when to join a program's workspace and what is worth writing there. `/serro-program` picks the Serro program for the session and joins its workspace, `/serro-sync` pulls and pushes shared context, and `/serro-handoff` writes a handoff of unfinished work.
-- **Hooks** that remind the agent to check for changes and nudge it once to write what other agents need.
+- **Hooks** that record when the agent joins a program and nudge it once, before it stops, to write what other agents need.
 
 ## Install
 

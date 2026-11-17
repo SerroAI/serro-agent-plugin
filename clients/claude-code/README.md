@@ -21,7 +21,7 @@ Then run `/mcp` and sign in to Serro. If you already have a Serro server configu
 
 The hooks run `scripts/serro-hook`, a POSIX `sh` script, on your machine. It reads the event that Claude Code passes it and the session transcript, keeps small per-session files in the plugin's data folder, and prints text for the agent. It makes no network requests and sends nothing to Serro. It stays silent until the agent joins a Serro program in the session. Then:
 
-- Before each prompt, it looks for a successful `program_join` in the session transcript, and once there is one, reminds the agent to check the workspace for changes before relying on it.
+- Before each prompt, it looks for a `program_join` call in the session transcript, and once there is one, reminds the agent to check the workspace for changes before relying on it.
 - When the agent is about to stop, once per session, it asks the agent whether anything should be written for other agents or handed off. The agent decides; it often writes nothing.
 
 The hooks need a POSIX `sh`. On Windows without one (Git Bash or WSL) they don't run; the skills and the MCP server still work.

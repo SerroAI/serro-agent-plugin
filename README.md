@@ -99,7 +99,7 @@ Tested in Cline 4.1.26 (VS Code) against staging: the four skills appeared under
 
 ## Install (VS Code Copilot)
 
-Run **Chat: Add Plugin Marketplace** and enter `SerroAI/serro-agent-plugin`, which adds it to `chat.plugins.marketplaces`. Then search the Extensions view for `@agentPlugins serro` and install it. Sign in with the **Authenticate** action on the `serro` MCP server. The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`.
+Run **Chat: Add Plugin Marketplace** and enter `SerroAI/serro-agent-plugin`. Then search the Extensions view for `@agentPlugins serro` and install it. Sign in with the **Authenticate** action on the `serro` MCP server. The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`.
 
 VS Code reads a repo's marketplace from the first of `marketplace.json`, `.plugin/marketplace.json`, `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json` that exists. `.github/plugin/marketplace.json` points it at the Agent Plugins package; without it, VS Code would install the Claude Code package.
 
@@ -108,9 +108,9 @@ VS Code runs an Agent Plugins package's hooks from `com.github.copilot/hooks/hoo
 - `UserPromptSubmit` adds the reminder. Copilot Fusion reads `additionalContext` at the top level, VS Code's agent reads it under `hookSpecificOutput`, so the script prints both.
 - `Stop` asks for one continuation, with `decision` and `reason` printed the same two ways. Copilot Fusion sends the nudge as a hidden user message: the chat shows the agent's reply, not the nudge.
 
-The hooks need `sh`, so on Windows they do nothing (`windows` and `powershell` are `exit 0`). State lives in `PLUGIN_DATA` (`~/.copilot/plugin-data/_direct/<hash>/`), a new folder each time VS Code copies the plugin.
+The hooks need `sh`, so on Windows they do nothing (`windows` and `powershell` are `exit 0`). State lives in `PLUGIN_DATA`: `~/.copilot/plugin-data/serro/serro/` for a marketplace install (in `~/.copilot/installed-plugins/serro/serro/`), and `~/.copilot/plugin-data/_direct/<hash>/` for a copy VS Code hands to Copilot Fusion, a new folder each time VS Code copies the plugin. With a marketplace install, Copilot Fusion runs both: its own install and VS Code's copy of it. The hooks run twice, each copy with its own state, and the agent still gets one reminder and one nudge.
 
-Tested in VS Code 1.146 (Copilot 0.74) against staging, with Copilot Fusion and the model it picked (MAI-Code-1.1-Flash), loading a staging copy through `chat.pluginLocations`: the plugin's MCP server showed **Authenticate**, `/serro:serro-program Serro Security Maintenance` joined the program and the join was recorded, the nudge ran one continuation in which the agent checked `program_fs_log` and stopped without writing, the next prompt carried the reminder (the agent quoted it), the agent left the program, and no second nudge fired. Copilot Fusion reports its MCP client as `copilot-cli` (1.0.108-0). In other runs the same model joined the wrong program (it copied the first `program_id` from `list_programs`) and once didn't call the Serro tools it had found.
+Tested in VS Code 1.146 (Copilot 0.74) against staging, with Copilot Fusion and the model it picked (MAI-Code-1.1-Flash), loading a staging copy through `chat.pluginLocations`: the plugin's MCP server showed **Authenticate**, `/serro:serro-program Serro Security Maintenance` joined the program and the join was recorded, the nudge ran one continuation in which the agent checked `program_fs_log` and stopped without writing, the next prompt carried the reminder (the agent quoted it), the agent left the program, and no second nudge fired. The same test passed after installing from a marketplace: a clone of this branch, pointed at staging and served locally, which Copilot installed from `.github/plugin/marketplace.json` rather than the Claude Code manifest. Copilot Fusion reports its MCP client as `copilot-cli` (1.0.108-0). In other runs the same model joined the wrong program (it copied the first `program_id` from `list_programs`) and once didn't call the Serro tools it had found.
 
 ## Install (pi)
 
@@ -209,7 +209,7 @@ Antigravity: `agy plugin install ./clients/antigravity` installs a copy, so rein
 
 Codex: `codex plugin marketplace add .` from the repo root, then `codex plugin add serro@serro`, and trust its hooks with `/hooks`. After changing the package, run `codex plugin remove serro@serro` and add it again: Codex runs the installed copy in `~/.codex/plugins/cache/serro/`.
 
-VS Code: add the package folder to `chat.pluginLocations` (`{"/path/to/clients/agent-plugins/serro": true}`) and reload the window. VS Code runs a copy in `~/Library/Application Support/Code/agentPlugins/` and copies the folder again on reload only if its top-level files changed, so after editing the script, `touch` the folder and `plugin.json`. A `file://` URL in `chat.plugins.marketplaces` tests a marketplace from a local clone.
+VS Code: add the package folder to `chat.pluginLocations` (`{"/path/to/clients/agent-plugins/serro": true}`) and reload the window. VS Code runs a copy in `~/Library/Application Support/Code/agentPlugins/` and copies the folder again on reload only if its top-level files changed, so after editing the script, `touch` the folder and `plugin.json`. **Add Plugin Marketplace** rejects a local path, and a `file://` URL reaches Copilot Fusion's engine as a path inside the workspace folder. To test a marketplace before it's on GitHub, serve a clone with `git http-backend` and add `http://127.0.0.1:<port>/<repo>.git`; Copilot clones with `--depth 1`, which a plain file server can't serve.
 
 pi: `pi -e ./clients/pi` loads the package for one run. Headless runs need stdin closed (`< /dev/null`), or pi waits for it.
 

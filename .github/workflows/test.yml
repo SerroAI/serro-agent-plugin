@@ -1,0 +1,25 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        # Ubuntu's sh is dash, with GNU sed and grep; macOS has BSD tools.
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hook script
+        run: sh tests/serro-hook-joined.sh
+      - name: Hermes plugin
+        run: python3 tests/hermes-plugin.py
+      - name: JSON files parse
+        run: git ls-files -z '*.json' | xargs -0 -n1 python3 -m json.tool > /dev/null

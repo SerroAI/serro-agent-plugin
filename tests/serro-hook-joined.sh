@@ -15,8 +15,8 @@ TMPDIR=$(mktemp -d); export TMPDIR
 # Hook state must land in $TMPDIR, even when run from inside a plugin's hook.
 unset CLAUDE_PLUGIN_DATA PLUGIN_DATA
 trap 'rm -rf "$TMPDIR"' EXIT
-P=2137fc71-a969-460d-a579-72153a9c0350
-A=527b90fb-b168-4aaf-ad07-f6c286612870
+P=3f6c2a1e-8d4b-4c7a-9e2f-1b5d7a9c0e42
+A=9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d
 O=0d5a0e3c-7b1f-4c2a-9e8d-1f2a3b4c5d6e
 fails=0
 

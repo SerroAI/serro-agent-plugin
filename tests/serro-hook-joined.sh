@@ -165,7 +165,7 @@ silent "antigravity: other sessions stay silent" "$(pre c2 0 | sh "$hook" prompt
 gstart="{\"hook_event_name\":\"PostToolUse\",\"session_id\":\"c1\",\"tool_use_id\":\"call_1\",\"tool_name\":\"serro-program_join\",\"tool_input\":{\"program_id\":\"$P\",\"role\":\"implementer\",\"working_on\":\"fix agent_id handling\"}"
 check "copilot: success in tool_result" recorded "$gstart,\"tool_result\":{\"result_type\":\"success\",\"text_result_for_llm\":\"{\\\"agent_id\\\":\\\"$A\\\",\\\"protocol\\\":\\\"...\\\"}\"}}" copilot
 check "copilot: success in tool_response" recorded "$gstart,\"tool_response\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"agent_id\\\": \\\"$A\\\"}\"}]}}" copilot
-check "copilot: Serro error JSON" skipped "$gstart,\"tool_result\":{\"result_type\":\"failure\",\"text_result_for_llm\":\"{\\\"error\\\":\\\"invalid_argument\\\",\\\"message\\\":\\\"bad agent_id: x\\\"}\"}}" copilot
+check "copilot: Serro error JSON" skipped "$gstart,\"tool_result\":{\"result_type\":\"failure\",\"text_result_for_llm\":\"{\\\"error\\\":\\\"conflict\\\",\\\"agent_id\\\":\\\"$A\\\",\\\"message\\\":\\\"already joined\\\"}\"}}" copilot
 rm -rf "$TMPDIR/serro-agent-plugin"
 printf '%s' "$gstart,\"tool_result\":{\"result_type\":\"success\",\"text_result_for_llm\":\"{\\\"agent_id\\\":\\\"$A\\\"}\"}}" | sh "$hook" joined copilot
 gstop='{"hook_event_name":"Stop","session_id":"c1","stop_reason":"end_turn","stop_hook_active":false}'

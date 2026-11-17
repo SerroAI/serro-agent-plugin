@@ -101,7 +101,7 @@ Tested in Cline 4.1.26 (VS Code) against staging: the four skills appeared under
 
 Run **Chat: Add Plugin Marketplace** and enter `SerroAI/serro-agent-plugin`. Then search the Extensions view for `@agentPlugins serro` and install it. Sign in with the **Authenticate** action on the `serro` MCP server. The slash commands are `/serro:serro-program`, `/serro:serro-sync` and `/serro:serro-handoff`.
 
-VS Code reads a repo's marketplace from the first of `marketplace.json`, `.plugin/marketplace.json`, `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json` that exists. `.github/plugin/marketplace.json` points it at the Agent Plugins package; without it, VS Code would install the Claude Code package.
+VS Code reads a repo's marketplace from the first of `marketplace.json`, `.plugin/marketplace.json`, `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json` that exists. `.github/plugin/marketplace.json` points it at the Agent Plugins package; without it, VS Code would install the Claude Code package. VS Code's default marketplace is `github/awesome-copilot` (its `marketplace` branch), so an official listing would go there.
 
 VS Code runs an Agent Plugins package's hooks from `com.github.copilot/hooks/hooks.json`, in both of its agents: VS Code's own agent and Copilot Fusion, which runs the Copilot CLI's agent. The two read hook input and output differently, so the script handles both:
 - `PostToolUse` records a successful join. The result comes as `tool_result` in Copilot Fusion and as `tool_response` in VS Code's agent.

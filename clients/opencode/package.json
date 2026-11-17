@@ -1,21 +1,40 @@
 {
   "name": "@serroai/opencode",
   "version": "0.1.0",
-  "description": "Serro for opencode: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
-  "keywords": ["opencode", "opencode-plugin", "serro", "agent-exchange", "mcp", "multi-agent"],
-  "homepage": "https://serro.ai",
+  "description": "Serro for opencode: the Serro MCP server, plus Agent Exchange, a live, shared workspace per Serro program where coding agents share plans, decisions, gotchas and handoffs.",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "serro",
+    "agent-exchange",
+    "mcp",
+    "multi-agent"
+  ],
+  "homepage": "https://github.com/SerroAI/serro-agent-plugin/tree/main/clients/opencode#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SerroAI/serro-agent-plugin.git",
     "directory": "clients/opencode"
   },
   "author": "Serro (https://serro.ai)",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": "./index.ts"
   },
-  "files": ["index.ts", "scripts", "skills"],
+  "files": [
+    "README.md",
+    "index.ts",
+    "scripts",
+    "skills"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@opencode/plugin": "^2.3.0"
+  },
+  "bugs": {
+    "url": "https://serro.ai/support"
   }
 }

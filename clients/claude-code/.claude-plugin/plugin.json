@@ -1,13 +1,14 @@
 {
   "name": "serro",
   "version": "0.1.0",
-  "description": "Serro for coding agents: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
+  "description": "The Serro MCP server, plus Agent Exchange: a live, shared workspace per Serro program where coding agents share plans, decisions, gotchas and handoffs.",
   "author": {
     "name": "Serro",
     "url": "https://serro.ai"
   },
   "homepage": "https://serro.ai",
   "repository": "https://github.com/SerroAI/serro-agent-plugin",
+  "license": "Apache-2.0",
   "keywords": [
     "serro",
     "agent-exchange",
@@ -15,6 +16,9 @@
     "collaboration",
     "multi-agent"
   ],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://github.com/SerroAI/serro-agent-plugin/tree/main/clients/claude-code#readme",
+  "supportUrl": "https://serro.ai/support",
   "privacyPolicyUrl": "https://serro.ai/legal/privacy",
-  "icon": "assets/icon.png"
+  "termsOfServiceUrl": "https://serro.ai/legal/terms"
 }

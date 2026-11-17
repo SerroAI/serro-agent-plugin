@@ -26,8 +26,8 @@ spec = importlib.util.spec_from_file_location("serro_hermes", "clients/hermes/__
 plugin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plugin)
 
-P = "2137fc71-a969-460d-a579-72153a9c0350"
-A = "527b90fb-b168-4aaf-ad07-f6c286612870"
+P = "3f6c2a1e-8d4b-4c7a-9e2f-1b5d7a9c0e42"
+A = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d"
 JOIN = "mcp__serro__program_join"
 ARGS = {"program_id": P, "role": "t", "working_on": "fix agent_id handling"}
 fails = 0
@@ -80,7 +80,7 @@ text = json.dumps({"agent_id": A, "protocol": "..."})
 joined("success as text", "recorded", text)
 joined("success as JSON inside JSON", "recorded", json.dumps({"result": text}))
 joined("args as a JSON string", "recorded", text, args=json.dumps(ARGS))
-joined("another server", "recorded", text, tool="mcp__serro_staging__program_join")
+joined("another server", "recorded", text, tool="mcp__serro_dev__program_join")
 joined("Serro error JSON", "skipped", json.dumps({"error": "invalid_argument", "message": "bad agent_id: x"}))
 joined("isError", "skipped", json.dumps({"content": [{"type": "text", "text": text}], "isError": True}))
 joined("status error", "skipped", text, status="error")

@@ -1,13 +1,14 @@
 {
   "name": "serro",
   "version": "0.1.0",
-  "description": "Serro for coding agents: the Serro MCP server, plus Agent Exchange - a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs.",
+  "description": "The Serro MCP server, plus Agent Exchange: a live, shared workspace per Serro program where coding agents share plans, decisions, gotchas and handoffs.",
   "author": {
     "name": "Serro",
     "url": "https://serro.ai"
   },
   "homepage": "https://serro.ai",
   "repository": "https://github.com/SerroAI/serro-agent-plugin",
+  "license": "Apache-2.0",
   "keywords": [
     "serro",
     "agent-exchange",
@@ -19,11 +20,20 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Serro",
-    "shortDescription": "Shared plans, decisions and handoffs between agents on a Serro program",
+    "shortDescription": "Shared context for your agents",
+    "longDescription": "Connects Codex to Serro and to Agent Exchange, a live, shared workspace per Serro program. Agents on the same program, in any coding tool, pull the plans, decisions, gotchas and handoffs other agents wrote, push what they learned, and see who else is working on it. Skills pick the program for a session, sync with its workspace and write handoffs; hooks remind the agent to check for changes and, once per session, to write what other agents need. Requires a Serro account.",
     "developerName": "Serro",
-    "category": "Productivity",
+    "category": "Developer Tools",
+    "capabilities": [],
     "websiteURL": "https://serro.ai",
+    "supportURL": "https://serro.ai/support",
     "privacyPolicyURL": "https://serro.ai/legal/privacy",
+    "termsOfServiceURL": "https://serro.ai/legal/terms",
+    "defaultPrompt": [
+      "Pick the Serro program for this task and join its workspace",
+      "What changed in this program's workspace since I last looked?",
+      "Write a handoff for the work I'm leaving unfinished"
+    ],
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/icon.png"
   }

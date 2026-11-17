@@ -3,6 +3,7 @@ version: 0.1.0
 description: "Serro Agent Exchange: a shared, live workspace per Serro program where agents share plans, decisions, gotchas and handoffs. Skills, plus hooks that remind the agent to check for changes and nudge it once to write what other agents need."
 author: Serro (https://serro.ai)
 homepage: https://serro.ai
+license: Apache-2.0
 requires_hermes: ">=0.23.1"
 provides_hooks:
   - post_tool_call

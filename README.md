@@ -4,8 +4,6 @@ One install that sets up Serro in a coding agent: the Serro MCP server, plus the
 
 Agent Exchange is GitHub for your agents' shared context, but live: one workspace per Serro program where agents pull what other agents learned, push what they learned, and see who else is working on it right now.
 
-Design and client research: "Serro: Agent Plugin" in Notion (Document Hub).
-
 ## What it installs
 
 - **The Serro MCP server** at `https://mcp.serro.ai/mcp` (OAuth; sign in from your agent's MCP menu).
@@ -16,6 +14,8 @@ Design and client research: "Serro: Agent Plugin" in Notion (Document Hub).
   - Stop, once per session after a join: asks whether anything should be written or handed off.
 
 Hooks stay silent until the agent joins a program in the session, so installing the plugin globally is safe.
+
+Each client folder has its own README with install steps and exactly what its hooks do. Support: https://serro.ai/support. Privacy policy: https://serro.ai/legal/privacy. Terms of service: https://serro.ai/legal/terms.
 
 ## Clients
 
@@ -29,7 +29,7 @@ Hooks stay silent until the agent joins a program in the session, so installing 
 | VS Code Copilot | Working; tested in VS Code (1.146) with Copilot Fusion against staging. VS Code's own agent: not yet tested | `clients/agent-plugins/serro` |
 | pi | Working; tested in pi (1.5.2), interactive and headless, against staging | `clients/pi` |
 | Hermes | Working; tested headless (Hermes 0.23.1) against staging. Skills and hooks; the MCP server is the user's own entry, and the stop nudge comes only on turns that edited files | `clients/hermes` |
-| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod. Sign-in needed SerroAI/serro-mcp#169 | `clients/antigravity` |
+| Antigravity | Working; tested in the Antigravity CLI (1.5.9) against staging and prod | `clients/antigravity` |
 | opencode | Working; tested in opencode (2.3.0), interactive and headless, against staging | `clients/opencode` |
 
 ## Install (Claude Code)
@@ -110,7 +110,7 @@ VS Code runs an Agent Plugins package's hooks from `com.github.copilot/hooks/hoo
 
 The hooks need `sh`, so on Windows they do nothing (`windows` and `powershell` are `exit 0`). State lives in `PLUGIN_DATA`: `~/.copilot/plugin-data/serro/serro/` for a marketplace install (in `~/.copilot/installed-plugins/serro/serro/`), and `~/.copilot/plugin-data/_direct/<hash>/` for a copy VS Code hands to Copilot Fusion, a new folder each time VS Code copies the plugin. With a marketplace install, Copilot Fusion runs both: its own install and VS Code's copy of it. The hooks run twice, each copy with its own state, and the agent still gets one reminder and one nudge.
 
-Tested in VS Code 1.146 (Copilot 0.74) against staging, with Copilot Fusion and the model it picked (MAI-Code-1.1-Flash), loading a staging copy through `chat.pluginLocations`: the plugin's MCP server showed **Authenticate**, `/serro:serro-program Serro Security Maintenance` joined the program and the join was recorded, the nudge ran one continuation in which the agent checked `program_fs_log` and stopped without writing, the next prompt carried the reminder (the agent quoted it), the agent left the program, and no second nudge fired. The same test passed after installing from a marketplace: a clone of this branch, pointed at staging and served locally, which Copilot installed from `.github/plugin/marketplace.json` rather than the Claude Code manifest. Copilot Fusion reports its MCP client as `copilot-cli` (1.0.108-0). In other runs the same model joined the wrong program (it copied the first `program_id` from `list_programs`) and once didn't call the Serro tools it had found.
+Tested in VS Code 1.146 (Copilot 0.74) against staging, with Copilot Fusion and the model it picked (MAI-Code-1.1-Flash), loading a staging copy through `chat.pluginLocations`: the plugin's MCP server showed **Authenticate**, `/serro:serro-program Checkout Redesign` joined the program and the join was recorded, the nudge ran one continuation in which the agent checked `program_fs_log` and stopped without writing, the next prompt carried the reminder (the agent quoted it), the agent left the program, and no second nudge fired. The same test passed after installing from a marketplace: a clone of this branch, pointed at staging and served locally, which Copilot installed from `.github/plugin/marketplace.json` rather than the Claude Code manifest. Copilot Fusion reports its MCP client as `copilot-cli` (1.0.108-0). In other runs the same model joined the wrong program (it copied the first `program_id` from `list_programs`) and once didn't call the Serro tools it had found.
 
 ## Install (pi)
 
@@ -138,7 +138,7 @@ Hermes gets a native plugin (`plugin.yaml` and `__init__.py`), not the Agent Plu
 
 The plugin ports `serro-hook` to Hermes hooks in Python, with the same text: `post_tool_call` records a successful `program_join`, `pre_llm_call` adds the reminder to each prompt, `pre_verify` adds the nudge, and `post_compaction` keeps the record when compaction starts a new session id. Hermes has no general stop hook: `pre_verify` fires only on turns where the agent edited files, so the nudge comes at the end of the first such turn after a join. Joins are kept in `~/.hermes/plugin-data/serro/`, one file per session as `serro-hook` keeps them, so a resumed session keeps them.
 
-Tested in Hermes 0.23.1 against staging, through an existing `serro-staging` server entry. Interactive: `/serro:` lists the four skills, and `/serro:program Serro Security Maintenance` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit). Its catalog of remote MCP servers (`optional-mcps/`) has taken no new entries since 2026-10-29, so the Serro server stays a `hermes mcp add`. No Hermes release lets a plugin sign in to its own MCP server: a package's `mcp.json` can't set `auth: oauth`, and every sign-in route refuses servers that come from a plugin (open upstream: NousResearch/hermes-agent#87253, #100443).
+Tested in Hermes 0.23.1 against staging, through an existing server entry pointed at staging. Interactive: `/serro:` lists the four skills, and `/serro:program Checkout Redesign` picked and joined the program. Headless (`hermes chat -q`): the join was recorded, the nudge kept the agent going once and it stopped without writing, the resumed session's next prompt carried the reminder, and a second file edit brought no second nudge. `hermes plugins validate clients/hermes`, the check the Hermes plugin catalog runs, passes. Hermes lists plugins in its catalog (`plugin-catalog/` in the hermes-agent repo, added by pull request and pinned to a commit). Its catalog of remote MCP servers (`optional-mcps/`) has taken no new entries since 2026-10-29, so the Serro server stays a `hermes mcp add`. No Hermes release lets a plugin sign in to its own MCP server: a package's `mcp.json` can't set `auth: oauth`, and every sign-in route refuses servers that come from a plugin (open upstream: NousResearch/hermes-agent#87253, #100443).
 
 ## Install (Antigravity)
 
@@ -155,9 +155,9 @@ The plugin runs the shared hook script from `hooks.json`:
 
 State lives in `PLUGIN_DATA` (`~/.gemini/antigravity-cli/plugin_data/serro/`).
 
-Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in. SerroAI/serro-mcp#169 fixed that, on prod since 2026-11-16. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
+Antigravity offers an MCP sign-in only when the server's protected-resource metadata names the exact URL it connects to (RFC 9728 §3.3). Serro's named the origin, so Antigravity showed `Unauthorized` with no sign-in, until a server fix on 2026-11-16. Official listings go through the Antigravity plugin marketplace (`agy plugin install <name>@antigravity-plugins-official`).
 
-Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the package pointed at staging. Interactive: signing in from `/plugin` worked, and `/serro:serro-program Serro Security Maintenance` picked and joined the program. Headless (`agy -p`): the join was recorded at the turn's `Stop`, the nudge ran one continuation, the next turn's first model call carried the reminder, and no second nudge fired. In print mode Antigravity can't ask for MCP permission, so the test passed `--settings '{"permissions":{"allow":["mcp(serro_serro/*)","mcp(serro_serro)"]}}'`, which applies to that run only.
+Tested in the Antigravity CLI (1.5.9) against staging, with a copy of the package pointed at staging. Interactive: signing in from `/plugin` worked, and `/serro:serro-program Checkout Redesign` picked and joined the program. Headless (`agy -p`): the join was recorded at the turn's `Stop`, the nudge ran one continuation, the next turn's first model call carried the reminder, and no second nudge fired. In print mode Antigravity can't ask for MCP permission, so the test passed `--settings '{"permissions":{"allow":["mcp(serro_serro/*)","mcp(serro_serro)"]}}'`, which applies to that run only.
 
 ## Install (opencode)
 
@@ -175,12 +175,12 @@ This is an opencode 2 server plugin (`@opencode/plugin`); opencode 1 plugins don
 State lives in `~/.local/share/opencode/serro/`. A server named `serro` in your own config replaces the plugin's. To point the plugin at another Serro deployment, give it a `url` option. A local package needs the `file://` form there:
 
 ```json
-{ "plugins": [{ "package": "file:///path/to/clients/opencode", "options": { "url": "https://mcp-staging.serro.ai/mcp" } }] }
+{ "plugins": [{ "package": "file:///path/to/clients/opencode", "options": { "url": "https://mcp.example.com/mcp" } }] }
 ```
 
 `SERRO_MCP_URL` also works, but only in the environment of opencode's background service (`opencode serve --service`), which runs plugins for the TUI and the CLI alike. Setting it on an `opencode` command doesn't reach the plugin.
 
-Tested in opencode 2.3.0 (Claude Sonnet 5.5 on Amazon Bedrock) against staging. Interactive: `/serro-program Serro Security Maintenance` showed as the user's words with the `serro-program` skill attached, the agent joined, and the idle nudge brought one reply that it had nothing to write. Headless (`opencode run`, which sends slash commands as plain text): the join was recorded, the idle nudge ran one more step in which the agent stopped without writing, the next prompt in the session carried the reminder, and no second nudge fired. opencode reports its MCP client as `opencode` with its real version. opencode has no plugin marketplace: plugins are npm packages, installed with `opencode plugin add`.
+Tested in opencode 2.3.0 (Claude Sonnet 5.5 on Amazon Bedrock) against staging. Interactive: `/serro-program Checkout Redesign` showed as the user's words with the `serro-program` skill attached, the agent joined, and the idle nudge brought one reply that it had nothing to write. Headless (`opencode run`, which sends slash commands as plain text): the join was recorded, the idle nudge ran one more step in which the agent stopped without writing, the next prompt in the session carried the reminder, and no second nudge fired. opencode reports its MCP client as `opencode` with its real version. opencode has no plugin marketplace: plugins are npm packages, installed with `opencode plugin add`.
 
 ## Picking the program
 
@@ -220,6 +220,8 @@ The hook script is POSIX `sh` with no dependencies, so it runs on any machine wi
 ## Layout
 
 ```
+LICENSE                           Apache License 2.0
+.github/workflows/test.yml        CI: the tests below, on Ubuntu and macOS
 .claude-plugin/marketplace.json   Claude Code marketplace (this repo)
 clients/claude-code/              Claude Code plugin
   .claude-plugin/plugin.json
@@ -278,3 +280,7 @@ tests/hermes-plugin.py
 ```
 
 Next: extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

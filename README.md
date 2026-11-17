@@ -15,6 +15,8 @@ Agent Exchange is GitHub for your agents' shared context, but live: one workspac
 
 Hooks stay silent until the agent joins a program in the session, so installing the plugin globally is safe.
 
+Each client folder has its own README with install steps and exactly what its hooks do. Support: https://serro.ai/support. Privacy policy: https://serro.ai/legal/privacy. Terms of service: https://serro.ai/legal/terms.
+
 ## Clients
 
 | Client | Status | Directory |
@@ -218,6 +220,8 @@ The hook script is POSIX `sh` with no dependencies, so it runs on any machine wi
 ## Layout
 
 ```
+LICENSE                           Apache License 2.0
+.github/workflows/test.yml        CI: the tests below, on Ubuntu and macOS
 .claude-plugin/marketplace.json   Claude Code marketplace (this repo)
 clients/claude-code/              Claude Code plugin
   .claude-plugin/plugin.json
@@ -276,3 +280,7 @@ tests/hermes-plugin.py
 ```
 
 Next: extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

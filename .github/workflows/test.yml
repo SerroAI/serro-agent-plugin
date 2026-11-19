@@ -21,5 +21,7 @@ jobs:
         run: sh tests/serro-hook-joined.sh
       - name: Hermes plugin
         run: python3 tests/hermes-plugin.py
+      - name: OpenAI directory package
+        run: sh tests/codex-directory.sh
       - name: JSON files parse
         run: git ls-files -z '*.json' | xargs -0 -n1 python3 -m json.tool > /dev/null

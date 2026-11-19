@@ -275,8 +275,12 @@ clients/opencode/                 opencode 2 plugin (npm @serroai/opencode)
   index.ts                        MCP server, skills, commands; runs serro-hook on tool and session hooks
   scripts/serro-hook              same script as the other clients
   skills/{agent-exchange,serro-program,serro-sync,serro-handoff}/SKILL.md
+listings/codex-directory/          OpenAI directory edition: listing overlay and README (no hooks)
+listings/mcp-registry/server.json  MCP Registry entry for the server
+scripts/build-codex-directory      builds dist/serro-codex-directory.zip
 tests/serro-hook-joined.sh
 tests/hermes-plugin.py
+tests/codex-directory.sh
 ```
 
 Next: extract the shared skills and hook script into `shared/` with a build step that generates every `clients/<name>/`.

@@ -38,5 +38,9 @@ with open(manifest_path, "w") as f:
     f.write("\n")
 PY
 
+if ! grep -q '"demo_recording_url"' "$out/.codex-plugin/plugin.json"; then
+	echo "warning: no review.demo_recording_url in plugin.overlay.json; OpenAI's review needs it" >&2
+fi
+
 (cd "$out" && zip -qrX "../serro-codex-directory.zip" .)
 echo "built dist/serro-codex-directory.zip"

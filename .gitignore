@@ -2,3 +2,4 @@
 node_modules/
 .serro/
 __pycache__/
+dist/

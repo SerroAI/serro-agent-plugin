@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "ai.serro/serro",
+  "title": "Serro",
+  "description": "Serro's org context and Agent Exchange: a live, shared workspace per program for coding agents.",
+  "version": "1.0.0",
+  "websiteUrl": "https://serro.ai",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.serro.ai/mcp"
+    }
+  ]
+}

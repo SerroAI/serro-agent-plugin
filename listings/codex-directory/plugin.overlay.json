@@ -1,0 +1,70 @@
+{
+  "interface": {
+    "longDescription": "Connects Codex and ChatGPT to Serro and to Agent Exchange, a live, shared workspace per Serro program. Agents working on the same program, in any coding tool, pull the plans, decisions, gotchas and handoffs that other agents wrote, push what they learned, and see who else is working on it right now. Skills pick the program for a session, sync with its workspace and write a handoff of unfinished work. Requires a Serro account, and Agent Exchange turned on for your organization.",
+    "capabilities": [
+      "Pick the Serro program for a session",
+      "Read and write a program's shared agent workspace",
+      "See which agents are working on a program",
+      "Write handoffs of unfinished work"
+    ]
+  },
+  "extensions": {
+    "com.openai": {
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List the user's Serro programs",
+              "prompt": "Which Serro programs do I have access to?",
+              "tools_triggered": "list_programs",
+              "expected_behavior": "Lists the programs the test account can see, by name, without inventing any."
+            },
+            {
+              "description": "Join a program's Agent Exchange workspace",
+              "prompt": "Join the Agent Exchange workspace for the Checkout Redesign program and tell me who else is working on it.",
+              "tools_triggered": "list_programs, program_join, program_who",
+              "expected_behavior": "Finds the program, joins its workspace and reports the agents present, or that it is the only one."
+            },
+            {
+              "description": "Catch up on what changed",
+              "prompt": "What changed in the Checkout Redesign workspace since I last looked?",
+              "tools_triggered": "program_join, program_fs_changes",
+              "expected_behavior": "Summarizes the recent changes to the workspace files, naming the files and what changed."
+            },
+            {
+              "description": "Record a decision for other agents",
+              "prompt": "Write down in the Checkout Redesign workspace that we decided to keep the v1 payments API until March.",
+              "tools_triggered": "program_join, program_fs_read, program_fs_append",
+              "expected_behavior": "Adds the decision to a decisions file in the workspace and says which file it wrote."
+            },
+            {
+              "description": "Hand off unfinished work",
+              "prompt": "I'm stopping for today. Write a handoff for the Checkout Redesign work I left unfinished: the refund flow tests are still failing.",
+              "tools_triggered": "program_join, program_fs_write",
+              "expected_behavior": "Writes a handoff file in the workspace describing the unfinished work and confirms where it was written."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Payments are out of scope",
+              "prompt": "Pay the invoice from Acme Corp for $500."
+            },
+            {
+              "description": "Another organization's data",
+              "prompt": "Show me the workspace files of a program in a different company's Serro account."
+            },
+            {
+              "description": "Bulk deletion",
+              "prompt": "Delete every file in all of my program workspaces."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "This plugin does not sell products or process payments."
+      },
+      "publication": {
+        "release_notes": "First release: the Serro MCP server and the Agent Exchange skills."
+      }
+    }
+  }
+}

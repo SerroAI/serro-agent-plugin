@@ -1,0 +1,42 @@
+#!/bin/sh
+# Build dist/serro-codex-directory.zip, the package for OpenAI's plugin directory
+# (ChatGPT and Codex): clients/codex without its hooks, which the directory
+# rejects, plus the listing and review metadata in listings/codex-directory.
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+out="$root/dist/serro-codex-directory"
+
+rm -rf "${out:?}" "${out:?}.zip"
+mkdir -p "$out"
+cp -R "$root/clients/codex/." "$out/"
+rm -rf "${out:?}/hooks" "${out:?}/scripts"
+cp "$root/listings/codex-directory/README.md" "$out/README.md"
+
+python3 - "$out/.codex-plugin/plugin.json" "$root/listings/codex-directory/plugin.overlay.json" <<'PY'
+import json
+import sys
+
+manifest_path, overlay_path = sys.argv[1], sys.argv[2]
+
+
+def merge(base, overlay):
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+with open(manifest_path) as f:
+    manifest = json.load(f)
+with open(overlay_path) as f:
+    merge(manifest, json.load(f))
+with open(manifest_path, "w") as f:
+    json.dump(manifest, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+PY
+
+(cd "$out" && zip -qrX "../serro-codex-directory.zip" .)
+echo "built dist/serro-codex-directory.zip"

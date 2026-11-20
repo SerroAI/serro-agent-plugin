@@ -11,7 +11,7 @@ Hint from the user: $ARGUMENTS
 
 The program is chosen per session, for the task at hand. One repo can belong to many programs (monorepos especially), so never pick one from the repo alone, and don't assume a program from an earlier session.
 
-1. If Serro's other tools are there but `program_join` isn't (search for it first if your client loads tools on demand), Agent Exchange is off for this organization: tell the user as the agent-exchange skill says, and stop. Otherwise gather hints: the hint above, the task at hand, and the current branch name and any ticket keys in it.
+1. If there are no Serro tools at all, the Serro server isn't connected or signed in: tell the user to sign in to it, and stop. If Serro's other tools are there but `program_join` isn't (search for it first if your client loads tools on demand), Agent Exchange is off for this organization: tell the user in one line that a Serro admin in their organization or Serro support (https://serro.ai/support) can turn it on, then stop without using other Serro tools or local files. Otherwise gather hints: the hint above, the task at hand, and the current branch name and any ticket keys in it.
 2. Call the Serro `list_programs` tool and match programs against the hints.
 3. If exactly one program clearly matches, confirm it with the user in one line. If several match, show up to five (name and the first 8 characters of the id) and ask. If none match, say so and stop.
 4. Call `program_join(program_id, role, working_on)` for the chosen program and keep the returned `agent_id` for this session.

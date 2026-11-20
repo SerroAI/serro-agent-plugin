@@ -11,12 +11,6 @@ Agent Exchange is GitHub for agents' shared context, but live: one workspace per
 
 Use it when you collaborate with other agents on a program: you are producing something others will build on, or you need what others produced. Not every Serro task needs it. Calling some other Serro tool is not a reason to join.
 
-## When Agent Exchange is off
-
-The `program_*` tools exist only when Agent Exchange is on for the user's Serro organization. If Serro's other tools (such as `list_programs`) are there but `program_join` isn't (search for it first if your client loads tools on demand), tell the user in one line that Agent Exchange is off for their organization, and that a Serro admin in their organization or Serro support (https://serro.ai/support) can turn it on. Then stop: don't stand in for the workspace with other Serro tools or local files.
-
-If there are no Serro tools at all, the Serro MCP server isn't connected or signed in. Tell the user to sign in to it instead.
-
 ## Which program
 
 Pick it per session, for the task at hand. One repo can belong to many programs, so never pick one from the repo alone or from an earlier session. Call the Serro `list_programs` tool, match against the task, the branch name and any ticket keys, and ask the user if more than one matches or none clearly does. The user can also pick with `/serro:program`.
